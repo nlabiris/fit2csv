@@ -96,7 +96,7 @@ def fill_missing_seconds(writer, prev_time, prev_row, current_time, current_row)
             prev_row["temp"],
             prev_row["gradient"]
         ])
-        previous_speed = (current_row["speed_kmh"] / gap) + abs(i - ((gap - 1) / 2)) * 1
+        previous_speed = (current_row["speed_kmh"] / gap) + abs(i - ((gap - 1) / 2))
         # previous_speed = max(previous_speed - 1, 0)  # Reduce speed for each second in gap
         previous_cadence = max(previous_cadence - 1, 0)  # Reduce cadence for each second in gap
 
