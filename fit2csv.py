@@ -5,14 +5,16 @@ from collections import deque
 import csv
 
 # Files
-FIT_FILE = "21796292181_ACTIVITY.fit"
-TCX_FILE = "activity_21796292181.tcx"
-OUTPUT_FILE = "activity_21796292181.csv"
+FIT_FILE = "22101275645_ACTIVITY.fit"
+TCX_FILE = "activity_22101275645.tcx"
+OUTPUT_FILE = "activity_22101275645.csv"
 
 # Settings
 TIME_TOLERANCE = 2
 WINDOW_METERS = 50
 ALT_SMOOTH_POINTS = 10
+DECREASE_WINDOW = 5
+INCREASE_WINDOW = 5
 
 #region Helpers
 
@@ -81,9 +83,26 @@ def get_speed(speed_elem):
 def fill_missing_seconds(writer, prev_time, prev_row, current_time, current_row):
     gap = int((current_time - prev_time).total_seconds())
     previous_speed = prev_row["speed_kmh"]
+    current_speed = current_row["speed_kmh"]
     previous_cadence = prev_row["cadence"]
+    current_cadence = current_row["cadence"]
     for i in range(1, gap):
         missing_time = prev_time + timedelta(seconds=i)
+
+        if i <= DECREASE_WINDOW:
+            # Decrease from previous_speed to 0
+            interpolated_speed = previous_speed * (1 - i / DECREASE_WINDOW)
+            interpolated_cadence = previous_cadence * (1 - i / DECREASE_WINDOW)
+        elif i >= gap - INCREASE_WINDOW:
+            # Increase from 0 to current_speed
+            progress = (i - (gap - INCREASE_WINDOW)) / INCREASE_WINDOW
+            interpolated_speed = current_speed * progress
+            interpolated_cadence = current_cadence * progress
+        else:
+            # Stay at 0
+            interpolated_speed = 0
+            interpolated_cadence = 0
+
         writer.writerow([
             missing_time.isoformat(),
             prev_row["lat"],
@@ -91,14 +110,12 @@ def fill_missing_seconds(writer, prev_time, prev_row, current_time, current_row)
             prev_row["alt"],
             prev_row["dist"],
             prev_row["hr"],
-            previous_cadence - 1,
-            previous_speed - 1,
+            round(interpolated_cadence),
+            interpolated_speed,
             prev_row["temp"],
-            prev_row["gradient"]
+            prev_row["gradient"],
+            1 # mark missing row
         ])
-        previous_speed = (current_row["speed_kmh"] / gap) + abs(i - ((gap - 1) / 2))
-        # previous_speed = max(previous_speed - 1, 0)  # Reduce speed for each second in gap
-        previous_cadence = max(previous_cadence - 1, 0)  # Reduce cadence for each second in gap
 
 def write_row(writer, time, lat, lon, alt, dist, hr, cadence, speed_kmh, temp, gradient):
     writer.writerow([
@@ -156,7 +173,8 @@ with open(OUTPUT_FILE, "w", newline="") as f:
         "cadence",
         "speed_kmh",
         "temperature",
-        "gradient_percent"
+        "gradient_percent",
+        "missing_row"
     ])
 
     prev_time = None
