@@ -14,9 +14,10 @@ width, height = 1920, 1080
 
 # TIP: For a true sports look, use a bold, italicized font like Impact, Roboto Condensed, or Ubuntu Italic.
 font_path = "C:\\Windows\\Fonts\\ITCKRIST.TTF"  # Changed to Arial Bold as a safe default
-font_huge = ImageFont.truetype(font_path, 85)   # For main metric values
-font_large = ImageFont.truetype(font_path, 40)  # For speed/timestamp
-font_small = ImageFont.truetype(font_path, 25)  # For labels and units
+font_speed = ImageFont.truetype(font_path, 85)   # For main metric values
+font_time = ImageFont.truetype(font_path, 40)  # For timestamp
+font_metrics = ImageFont.truetype(font_path, 50)  # For metrics
+font_labels = ImageFont.truetype(font_path, 25)  # For labels and units
 
 max_speed = 73
 os.makedirs(output_folder, exist_ok=True)
@@ -96,25 +97,25 @@ def draw_speedometer(draw, center, radius, speed):
 
     # 4. Center Speed Text
     speed_str = f"{speed:.1f}"
-    speed_w = draw.textlength(speed_str, font=font_huge)
-    draw.text((x - speed_w/2, y - 40), speed_str, font=font_huge, fill=(255,255,255))
+    speed_w = draw.textlength(speed_str, font=font_speed)
+    draw.text((x - speed_w/2, y - 40), speed_str, font=font_speed, fill=(255,255,255))
     
     unit_str = "km/h"
-    unit_w = draw.textlength(unit_str, font=font_small)
-    draw.text((x - unit_w/2, y + 45), unit_str, font=font_small, fill=(200,200,200))
+    unit_w = draw.textlength(unit_str, font=font_labels)
+    draw.text((x - unit_w/2, y + 45), unit_str, font=font_labels, fill=(200,200,200))
 
 # --- HELPER: DRAW METRIC BLOCK ---
 def draw_metric(draw, x, y, icon_func, label, value, unit):
     # Draw Icon & Label
     icon_func(draw, x, y)
-    draw.text((x + 35, y), label, font=font_small, fill=(200, 200, 200))
+    draw.text((x + 35, y), label, font=font_labels, fill=(200, 200, 200))
     
     # Draw Value
-    draw.text((x, y + 30), value, font=font_huge, fill=(255, 255, 255))
-    val_w = draw.textlength(value, font=font_huge)
+    draw.text((x, y + 30), value, font=font_metrics, fill=(255, 255, 255))
+    val_w = draw.textlength(value, font=font_metrics)
     
     # Draw Unit right next to the value
-    draw.text((x + val_w + 5, y + 80), unit, font=font_small, fill=(200, 200, 200))
+    draw.text((x + val_w + 10, y + 60), unit, font=font_labels, fill=(200, 200, 200))
 
 def draw_time_metric(draw, x, y, icon_func, value):
     # Draw Icon & Label
@@ -123,7 +124,7 @@ def draw_time_metric(draw, x, y, icon_func, value):
     utctime = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S').replace(tzinfo=ZoneInfo("UTC"))
     localtime = utctime.astimezone(user_tz_preference)
 
-    draw.text((x + 50, y - 15), f"{localtime.strftime('%Y-%m-%d %H:%M:%S')}", font=font_large, fill=(255,255,255))
+    draw.text((x + 50, y - 15), f"{localtime.strftime('%Y-%m-%d %H:%M:%S')}", font=font_time, fill=(255,255,255))
 
 # --- READ CSV ---
 data = []
@@ -156,16 +157,16 @@ for i, row in enumerate(data):
     draw_time_metric(draw, 30, 20, draw_clock_icon, row['time'])
 
     # 2. Middle-Left: Elevation & Distance
-    draw_metric(draw, 30, 250, draw_mountain_icon, "Elevation", f"{float(row['elevation']):.0f}", "m")
-    draw_metric(draw, 30, 430, draw_road_icon, "Total Distance", f"{float(row['distance'])/1000:.2f}", "km")
+    draw_metric(draw, 30, 100, draw_mountain_icon, "Elevation", f"{float(row['elevation']):.0f}", "m")
+    draw_metric(draw, 30, 220, draw_road_icon, "Total Distance", f"{float(row['distance'])/1000:.2f}", "km")
 
     # 3. Middle-Right: Cadence & Heart Rate
-    draw_metric(draw, width-200, 250, draw_pedal_icon, "Cadence", f"{row['cadence']}", "rpm")
-    draw_metric(draw, width-200, 430, draw_heart_icon, "Heart Rate", f"{row['heart_rate']}", "bpm")
+    draw_metric(draw, width-200, 50, draw_pedal_icon, "Cadence", f"{row['cadence']}", "rpm")
+    draw_metric(draw, width-200, 180, draw_heart_icon, "Heart Rate", f"{row['heart_rate']}", "bpm")
 
     # 4. Bottom-Right: Speedometer
     # Adjust position slightly up from the absolute corner to match your image
-    draw_speedometer(draw, center=(width-170, height-250), radius=140, speed=float(row['speed_kmh']))
+    draw_speedometer(draw, center=(width-170, height-150), radius=140, speed=float(row['speed_kmh']))
 
     # Save frame
     img.save(f"{output_folder}/frame_{i:05d}.png")
