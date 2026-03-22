@@ -5,9 +5,9 @@ from collections import deque
 import csv
 
 # Files
-FIT_FILE = "22101275645_ACTIVITY.fit"
-TCX_FILE = "activity_22101275645.tcx"
-OUTPUT_FILE = "activity_22101275645.csv"
+FIT_FILE = "22257950053_ACTIVITY.fit"
+TCX_FILE = "activity_22257950053.tcx"
+OUTPUT_FILE = "activity_22257950053.csv"
 
 # Settings
 TIME_TOLERANCE = 2

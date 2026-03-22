@@ -8,9 +8,10 @@ from zoneinfo import ZoneInfo
 import csv, os, math
 
 # --- SETTINGS ---
-csv_file = "activity_22101275645_final.csv"
-output_folder = "frames"
-width, height = 1920, 1080
+CSV_FILE = "activity_22101275645_final.csv"
+OUTPUT_FOLDER = "frames"
+WIDTH = 1920
+HEIGHT = 1080
 
 # TIP: For a true sports look, use a bold, italicized font like Impact, Roboto Condensed, or Ubuntu Italic.
 font_path = "C:\\Windows\\Fonts\\ITCKRIST.TTF"  # Changed to Arial Bold as a safe default
@@ -20,7 +21,7 @@ font_metrics = ImageFont.truetype(font_path, 50)  # For metrics
 font_labels = ImageFont.truetype(font_path, 25)  # For labels and units
 
 max_speed = 73
-os.makedirs(output_folder, exist_ok=True)
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 # Panel Background Color: (Red, Green, Blue, Alpha) -> 0 is fully transparent, 255 is solid
 panel_bg = (0, 0, 0, 0) # Semi-transparent black background for better readability of text/icons
@@ -128,7 +129,7 @@ def draw_time_metric(draw, x, y, icon_func, value):
 
 # --- READ CSV ---
 data = []
-with open(csv_file, newline='') as f:
+with open(CSV_FILE, newline='') as f:
     reader = csv.DictReader(f)
     for row in reader:
         data.append(row)
@@ -136,7 +137,7 @@ with open(csv_file, newline='') as f:
 # --- GENERATE FRAMES ---
 print("Generating frames...")
 for i, row in enumerate(data):
-    img = Image.new("RGBA", (width, height), (0,0,0,0))
+    img = Image.new("RGBA", (WIDTH, HEIGHT), (0,0,0,0))
     draw = ImageDraw.Draw(img)
 
     # --- DRAW BACKGROUND PANELS ---
@@ -161,22 +162,22 @@ for i, row in enumerate(data):
     draw_metric(draw, 30, 220, draw_road_icon, "Total Distance", f"{float(row['distance'])/1000:.2f}", "km")
 
     # 3. Middle-Right: Cadence & Heart Rate
-    draw_metric(draw, width-200, 50, draw_pedal_icon, "Cadence", f"{row['cadence']}", "rpm")
-    draw_metric(draw, width-200, 180, draw_heart_icon, "Heart Rate", f"{row['heart_rate']}", "bpm")
+    draw_metric(draw, WIDTH-200, 50, draw_pedal_icon, "Cadence", f"{row['cadence']}", "rpm")
+    draw_metric(draw, WIDTH-200, 180, draw_heart_icon, "Heart Rate", f"{row['heart_rate']}", "bpm")
 
     # 4. Bottom-Right: Speedometer
     # Adjust position slightly up from the absolute corner to match your image
-    draw_speedometer(draw, center=(width-170, height-150), radius=140, speed=float(row['speed_kmh']))
+    draw_speedometer(draw, center=(WIDTH-170, HEIGHT-150), radius=140, speed=float(row['speed_kmh']))
 
     # Save frame
-    img.save(f"{output_folder}/frame_{i:05d}.png")
+    img.save(f"{OUTPUT_FOLDER}/frame_{i:05d}.png")
 
     # Quick progress indicator
     if i % 100 == 0:
         print(f"Processed {i} frames...")
 
     # For: testing, break after the first frame to verify output before processing the entire dataset
-    # if i % 1 == 0:
-    #     break
+    if i % 1 == 0:
+        break
 
-print(f"Done! Generated {len(data)} frames in '{output_folder}'")
+print(f"Done! Generated {len(data)} frames in '{OUTPUT_FOLDER}'")
