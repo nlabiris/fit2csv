@@ -42,10 +42,18 @@ def draw_road_icon(draw, x, y):
     draw.line((x+12, y+4, x+12, y+10), fill=(255, 255, 255), width=2)
     draw.line((x+12, y+14, x+12, y+20), fill=(255, 255, 255), width=2)
 
-def draw_pedal_icon(draw, x, y):
-    draw.ellipse((x+4, y+4, x+20, y+20), outline=(200, 200, 200), width=3)
-    draw.line((x+12, y+12, x+2, y+2), fill=(255, 255, 255), width=3)
-    draw.ellipse((x, y, x+4, y+4), fill=(255, 255, 255))
+def draw_pedal_icon(draw, x, y, pedal_icon=True):
+    if pedal_icon:
+        draw.line((x-4, y+2, x+4, y+2), fill=(255, 255, 255), width=3)
+        draw.line((x+12, y+12, x+2, y+2), fill=(255, 255, 255), width=3)
+        draw.ellipse((x+4, y+4, x+20, y+20), outline=(200, 200, 200), width=3)
+        draw.line((x+20, y+20, x+2, y+2), fill=(255, 255, 255), width=3)
+        draw.line((x+20, y+20, x+26, y+20), fill=(255, 255, 255), width=3)
+        draw.ellipse((x+10, y+10, x+14, y+14), outline=(200, 200, 200), width=3)
+    else:
+        draw.ellipse((x+4, y+4, x+20, y+20), outline=(200, 200, 200), width=3)
+        draw.line((x+12, y+12, x+2, y+2), fill=(255, 255, 255), width=3)
+        draw.ellipse((x, y, x+4, y+4), fill=(255, 255, 255))
 
 def draw_heart_icon(draw, x, y):
     # Simplified diamond/heart
@@ -108,6 +116,14 @@ def draw_metric(draw, x, y, icon_func, label, value, unit):
     # Draw Unit right next to the value
     draw.text((x + val_w + 5, y + 80), unit, font=font_small, fill=(200, 200, 200))
 
+def draw_time_metric(draw, x, y, icon_func, value):
+    # Draw Icon & Label
+    icon_func(draw, x, y)
+    
+    utctime = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S').replace(tzinfo=ZoneInfo("UTC"))
+    localtime = utctime.astimezone(user_tz_preference)
+
+    draw.text((x + 50, y - 15), f"{localtime.strftime('%Y-%m-%d %H:%M:%S')}", font=font_large, fill=(255,255,255))
 
 # --- READ CSV ---
 data = []
@@ -124,48 +140,42 @@ for i, row in enumerate(data):
 
     # --- DRAW BACKGROUND PANELS ---
     # Top-Left Panel (Timestamp)
-    draw.rounded_rectangle([30, 20, 480, 100], radius=15, fill=panel_bg)
+    # draw.rounded_rectangle([30, 20, 480, 100], radius=15, fill=panel_bg)
     
     # Middle-Left Panel (Elevation & Distance)
-    draw.rounded_rectangle([30, 220, 380, 580], radius=20, fill=panel_bg)
+    # draw.rounded_rectangle([30, 220, 380, 580], radius=20, fill=panel_bg)
     
     # Middle-Right Panel (Cadence & Heart Rate)
-    draw.rounded_rectangle([width-430, 220, width-50, 580], radius=20, fill=panel_bg)
+    # draw.rounded_rectangle([width-430, 220, width-50, 580], radius=20, fill=panel_bg)
     
     # Bottom-Right Panel (Speedometer)
-    draw.rounded_rectangle([width-430, height-430, width-70, height-70], radius=25, fill=panel_bg)
-
+    # draw.rounded_rectangle([width-430, height-430, width-70, height-70], radius=25, fill=panel_bg)
 
     # --- DRAW FOREGROUND METRICS ---
     # 1. Top-Left: Timestamp
-    draw_clock_icon(draw, 50, 40)
-
-    utctime = datetime.strptime(row['time'], '%Y-%m-%dT%H:%M:%S').replace(tzinfo=ZoneInfo("UTC"))
-    localtime = utctime.astimezone(user_tz_preference)
-
-    draw.text((85, 40), f"{localtime.strftime('%Y-%m-%d %H:%M:%S')}", font=font_large, fill=(255,255,255))
+    draw_time_metric(draw, 30, 20, draw_clock_icon, row['time'])
 
     # 2. Middle-Left: Elevation & Distance
-    draw_metric(draw, 60, 250, draw_mountain_icon, "Elevation", f"{float(row['elevation']):.0f}", "m")
-    draw_metric(draw, 60, 430, draw_road_icon, "Total Distance", f"{float(row['distance'])/1000:.2f}", "km")
+    draw_metric(draw, 30, 250, draw_mountain_icon, "Elevation", f"{float(row['elevation']):.0f}", "m")
+    draw_metric(draw, 30, 430, draw_road_icon, "Total Distance", f"{float(row['distance'])/1000:.2f}", "km")
 
     # 3. Middle-Right: Cadence & Heart Rate
-    draw_metric(draw, width-400, 250, draw_pedal_icon, "Cadence", f"{row['cadence']}", "rpm")
-    draw_metric(draw, width-400, 430, draw_heart_icon, "Heart Rate", f"{row['heart_rate']}", "bpm")
+    draw_metric(draw, width-200, 250, draw_pedal_icon, "Cadence", f"{row['cadence']}", "rpm")
+    draw_metric(draw, width-200, 430, draw_heart_icon, "Heart Rate", f"{row['heart_rate']}", "bpm")
 
     # 4. Bottom-Right: Speedometer
     # Adjust position slightly up from the absolute corner to match your image
-    draw_speedometer(draw, center=(width-250, height-250), radius=140, speed=float(row['speed_kmh']))
+    draw_speedometer(draw, center=(width-170, height-250), radius=140, speed=float(row['speed_kmh']))
 
     # Save frame
     img.save(f"{output_folder}/frame_{i:05d}.png")
-    
-    # For testing, break after the first frame to verify output before processing the entire dataset
-    # if i % 1 == 0:
-    #     break
 
     # Quick progress indicator
     if i % 100 == 0:
         print(f"Processed {i} frames...")
+
+    # For: testing, break after the first frame to verify output before processing the entire dataset
+    # if i % 1 == 0:
+    #     break
 
 print(f"Done! Generated {len(data)} frames in '{output_folder}'")
