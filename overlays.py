@@ -1,5 +1,5 @@
 # exiftool V:\media\video\dji\internal_storage\DCIM\DJI_001\DJI_20260322110703_0004_D.MP4
-# ffmpeg -i V:\media\video\dji\internal_storage\DCIM\DJI_001\DJI_20260322110703_0004_D.MP4 -framerate 1 -i frames/frame_%05d.png -filter_complex "[0:v][1:v] overlay=0:0:eof_action=pass" -c:v hevc_nvenc -rc vbr -cq 19 -preset slow -c:a copy output_nvenc.mp4
+# ffmpeg -i V:\media\video\dji\internal_storage\DCIM\DJI_001\DJI_20260322110703_0004_D.MP4 -framerate 2 -i frames/frame_%05d.png -filter_complex "[0:v][1:v] overlay=0:0:eof_action=pass" -c:v hevc_nvenc -rc vbr -cq 19 -preset slow -c:a copy output_nvenc.mp4
 # ffmpeg -i V:\media\video\dji\internal_storage\DCIM\DJI_001\DJI_20260322110703_0004_D.MP4 -framerate 1 -i frames/frame_%05d.png -filter_complex "[0:v][1:v] overlay=0:0:eof_action=pass" -c:v libx265 -crf 18 -preset slow -c:a copy output.mp4
 
 from PIL import Image, ImageDraw, ImageFont
@@ -8,10 +8,39 @@ from zoneinfo import ZoneInfo
 import csv, os, math
 
 # Overlay frames settings
-CSV_FILE = "activity_22257950053_final.csv"
+CSV_FILE = "activity_22257950053_final_500.csv"
 OUTPUT_FOLDER = "frames"
 WIDTH = 1920
 HEIGHT = 1080
+FONT_PATH = "C:\\Windows\\Fonts\\ITCKRIST.TTF"
+
+# Widget settings
+WIDGET_ICON_VALUE_COLOR = (255, 255, 255)
+WIDGET_ICON_LABEL_COLOR = (0, 0, 0)
+WIDGET_ICON_UNIT_COLOR = (0, 0, 0)
+
+CLOCK_ICON_COLOR_OUTLINE = (100, 100, 100)
+CLOCK_ICON_COLOR_LINES = (255, 255, 255)
+
+ELEVATION_ICON_COLOR_PEAK = (100, 100, 100)
+ELEVATION_ICON_COLOR_MOUNTAIN = (255, 255, 255)
+
+DISTANCE_ICON_COLOR_PAVEMENT = (100, 100, 100)
+DISTANCE_ICON_COLOR_LINES = (255, 255, 255)
+
+CADENCE_ICON_COLOR_CRANK = (100, 100, 100)
+CADENCE_ICON_COLOR_PEDALS = (255, 255, 255)
+
+HEARTRATE_ICON_COLOR = (255, 50, 50)
+
+SPEEDOMETER_ICON_ARC_COLOR = (60, 60, 60, 255)
+SPEEDOMETER_ICON_ARC_TICKS_COLOR = (150, 150, 150)
+SPEEDOMETER_ICON_SPEED_COLOR_GREEN = (50, 255, 50)
+SPEEDOMETER_ICON_SPEED_COLOR_YELLOW = (255, 200, 50)
+SPEEDOMETER_ICON_SPEED_COLOR_RED = (255, 50, 50)
+SPEEDOMETER_ICON_VALUE_COLOR = (255,255,255)
+SPEEDOMETER_ICON_UNIT_COLOR = (200,200,200)
+
 
 class Overlay:
     debug: bool = False
@@ -28,11 +57,11 @@ class Overlay:
         self.debug = debug
         self.local_tz = ZoneInfo("Europe/Athens")
         self.utc_tz = ZoneInfo("UTC")
-        font_path = "C:\\Windows\\Fonts\\ITCKRIST.TTF"  # Changed to Arial Bold as a safe default
-        self.font_speed = ImageFont.truetype(font_path, 85)   # For main metric values
-        self.font_time = ImageFont.truetype(font_path, 40)  # For timestamp
-        self.font_metrics = ImageFont.truetype(font_path, 50)  # For metrics
-        self.font_labels = ImageFont.truetype(font_path, 25)  # For labels and units
+        font_path = FONT_PATH
+        self.font_speed = ImageFont.truetype(font_path, 85)
+        self.font_time = ImageFont.truetype(font_path, 40)
+        self.font_metrics = ImageFont.truetype(font_path, 50)
+        self.font_labels = ImageFont.truetype(font_path, 25)
 
         # Panel Background Color: (Red, Green, Blue, Alpha) -> 0 is fully transparent, 255 is solid
         self.panel_bg = (0, 0, 0, 0)
@@ -59,7 +88,7 @@ class Overlay:
 
             self._draw_time_metric(draw, 30, 20, self._draw_clock_icon, row['time'])
             self._draw_metric(draw, 30, 100, self._draw_mountain_icon, "Elevation", f"{float(row['elevation']):.0f}", "m")
-            self._draw_metric(draw, 30, 220, self._draw_road_icon, "Total Distance", f"{float(row['distance'])/1000:.2f}", "km")
+            self._draw_metric(draw, 30, 220, self._draw_road_icon, "Total Distance", f"{float(row['distance']):.2f}", "km")
             self._draw_metric(draw, WIDTH-200, 50, self._draw_pedal_icon, "Cadence", f"{row['cadence']}", "rpm")
             self._draw_metric(draw, WIDTH-200, 180, self._draw_heart_icon, "Heart Rate", f"{row['heart_rate']}", "bpm")
             self._draw_speedometer(draw, center=(WIDTH-170, HEIGHT-150), radius=140, speed=float(row['speed_kmh']))
@@ -67,7 +96,7 @@ class Overlay:
             self._report_progress(i)
 
             # For: testing, break after the first frame to verify output before processing the entire dataset
-            if self.debug and i % 1 == 0:
+            if self.debug:
                 break
 
         return len(data)
@@ -106,35 +135,35 @@ class Overlay:
             print(f"Processed {index} frames...")
 
     def _draw_clock_icon(self,draw, x, y):
-        draw.ellipse((x, y, x+24, y+24), outline=(100, 100, 100), width=3)
-        draw.line((x+12, y+12, x+12, y+5), fill=(255, 255, 255), width=3)
-        draw.line((x+12, y+12, x+18, y+12), fill=(255, 255, 255), width=3)
+        draw.ellipse((x, y, x+24, y+24), outline=CLOCK_ICON_COLOR_OUTLINE, width=3)
+        draw.line((x+12, y+12, x+12, y+5), fill=CLOCK_ICON_COLOR_LINES, width=3)
+        draw.line((x+12, y+12, x+18, y+12), fill=CLOCK_ICON_COLOR_LINES, width=3)
 
     def _draw_mountain_icon(self, draw, x, y):
-        draw.polygon([(x+12, y), (x, y+24), (x+24, y+24)], fill=(100, 100, 100))
-        draw.polygon([(x+12, y), (x+6, y+12), (x+12, y+15), (x+18, y+12)], fill=(255, 255, 255))
+        draw.polygon([(x+12, y), (x, y+24), (x+24, y+24)], fill=ELEVATION_ICON_COLOR_PEAK)
+        draw.polygon([(x+12, y), (x+6, y+12), (x+12, y+15), (x+18, y+12)], fill=ELEVATION_ICON_COLOR_MOUNTAIN)
 
     def _draw_road_icon(self, draw, x, y):
-        draw.polygon([(x+8, y), (x+16, y), (x+24, y+24), (x, y+24)], fill=(100, 100, 100))
-        draw.line((x+12, y+4, x+12, y+10), fill=(255, 255, 255), width=2)
-        draw.line((x+12, y+14, x+12, y+20), fill=(255, 255, 255), width=2)
+        draw.polygon([(x+8, y), (x+16, y), (x+24, y+24), (x, y+24)], fill=DISTANCE_ICON_COLOR_PAVEMENT)
+        draw.line((x+12, y+4, x+12, y+10), fill=DISTANCE_ICON_COLOR_LINES, width=2)
+        draw.line((x+12, y+14, x+12, y+20), fill=DISTANCE_ICON_COLOR_LINES, width=2)
 
     def _draw_pedal_icon(self, draw, x, y, pedal_icon=True):
         if pedal_icon:
-            draw.line((x-4, y+2, x+4, y+2), fill=(255, 255, 255), width=3)
-            draw.line((x+12, y+12, x+2, y+2), fill=(255, 255, 255), width=3)
-            draw.ellipse((x+4, y+4, x+20, y+20), outline=(100, 100, 100), width=3)
-            draw.line((x+20, y+20, x+2, y+2), fill=(255, 255, 255), width=3)
-            draw.line((x+20, y+20, x+26, y+20), fill=(255, 255, 255), width=3)
-            draw.ellipse((x+10, y+10, x+14, y+14), outline=(100, 100, 100), width=3)
+            draw.line((x-4, y+2, x+4, y+2), fill=CADENCE_ICON_COLOR_PEDALS, width=3)
+            draw.line((x+12, y+12, x+2, y+2), fill=CADENCE_ICON_COLOR_PEDALS, width=3)
+            draw.ellipse((x+4, y+4, x+20, y+20), outline=CADENCE_ICON_COLOR_CRANK, width=3)
+            draw.line((x+20, y+20, x+2, y+2), fill=CADENCE_ICON_COLOR_PEDALS, width=3)
+            draw.line((x+20, y+20, x+26, y+20), fill=CADENCE_ICON_COLOR_PEDALS, width=3)
+            draw.ellipse((x+10, y+10, x+14, y+14), outline=CADENCE_ICON_COLOR_CRANK, width=3)
         else:
-            draw.ellipse((x+4, y+4, x+20, y+20), outline=(100, 100, 100), width=3)
-            draw.line((x+12, y+12, x+2, y+2), fill=(255, 255, 255), width=3)
-            draw.ellipse((x, y, x+4, y+4), fill=(255, 255, 255))
+            draw.ellipse((x+4, y+4, x+20, y+20), outline=CADENCE_ICON_COLOR_CRANK, width=3)
+            draw.line((x+12, y+12, x+2, y+2), fill=CADENCE_ICON_COLOR_PEDALS, width=3)
+            draw.ellipse((x, y, x+4, y+4), fill=CADENCE_ICON_COLOR_PEDALS)
 
     def _draw_heart_icon(self, draw, x, y):
         # Simplified diamond/heart
-        draw.polygon([(x+12, y+24), (x, y+8), (x+6, y), (x+12, y+6), (x+18, y), (x+24, y+8)], fill=(255, 50, 50))
+        draw.polygon([(x+12, y+24), (x, y+8), (x+6, y), (x+12, y+6), (x+18, y), (x+24, y+8)], fill=HEARTRATE_ICON_COLOR)
 
     def _draw_speedometer(self, draw, center, radius, speed):
         x, y = center
@@ -143,7 +172,7 @@ class Overlay:
         gauge_width = 20
 
         # 1. Background Arc (Dark grey track)
-        draw.arc([x-radius, y-radius, x+radius, y+radius], start_angle, end_angle, fill=(60, 60, 60, 255), width=gauge_width)
+        draw.arc([x-radius, y-radius, x+radius, y+radius], start_angle, end_angle, fill=SPEEDOMETER_ICON_ARC_COLOR, width=gauge_width)
 
         # 2. Colored Speed Arc
         speed_pct = min(max(speed / self.max_speed, 0), 1.0) # Clamp between 0 and 1
@@ -151,11 +180,11 @@ class Overlay:
         
         # Gradient logic (Green -> Yellow -> Red)
         if speed_pct < 0.5:
-            color = (50, 255, 50)  # Green
+            color = SPEEDOMETER_ICON_SPEED_COLOR_GREEN  # Green
         elif speed_pct < 0.8:
-            color = (255, 200, 50) # Yellow
+            color = SPEEDOMETER_ICON_SPEED_COLOR_YELLOW # Yellow
         else:
-            color = (255, 50, 50)  # Red
+            color = SPEEDOMETER_ICON_SPEED_COLOR_RED  # Red
 
         if current_angle > start_angle:
             draw.arc([x-radius, y-radius, x+radius, y+radius], start_angle, current_angle, fill=color, width=gauge_width)
@@ -167,42 +196,42 @@ class Overlay:
             in_y = y + (radius - 5) * math.sin(rad)
             out_x = x + (radius + 10) * math.cos(rad)
             out_y = y + (radius + 10) * math.sin(rad)
-            draw.line((in_x, in_y, out_x, out_y), fill=(150, 150, 150), width=3)
+            draw.line((in_x, in_y, out_x, out_y), fill=SPEEDOMETER_ICON_ARC_TICKS_COLOR, width=3)
 
         # 4. Center Speed Text
         speed_str = f"{speed:.1f}"
         speed_w = draw.textlength(speed_str, font=self.font_speed)
-        draw.text((x - speed_w/2, y - 40), speed_str, font=self.font_speed, fill=(255,255,255))
+        draw.text((x - speed_w/2, y - 40), speed_str, font=self.font_speed, fill=SPEEDOMETER_ICON_VALUE_COLOR)
         
         unit_str = "km/h"
         unit_w = draw.textlength(unit_str, font=self.font_labels)
-        draw.text((x - unit_w/2, y + 45), unit_str, font=self.font_labels, fill=(200,200,200))
+        draw.text((x - unit_w/2, y + 45), unit_str, font=self.font_labels, fill=SPEEDOMETER_ICON_UNIT_COLOR)
 
     def _draw_metric(self, draw, x, y, icon_func, label, value, unit):
         # Draw Icon & Label
         icon_func(draw, x, y)
-        draw.text((x + 35, y), label, font=self.font_labels, fill=(200, 200, 200))
+        draw.text((x + 35, y), label, font=self.font_labels, fill=WIDGET_ICON_LABEL_COLOR)
         
         # Draw Value
-        draw.text((x, y + 30), value, font=self.font_metrics, fill=(255, 255, 255))
+        draw.text((x, y + 30), value, font=self.font_metrics, fill=WIDGET_ICON_VALUE_COLOR)
         val_w = draw.textlength(value, font=self.font_metrics)
         
         # Draw Unit right next to the value
-        draw.text((x + val_w + 10, y + 60), unit, font=self.font_labels, fill=(200, 200, 200))
+        draw.text((x + val_w + 10, y + 60), unit, font=self.font_labels, fill=WIDGET_ICON_UNIT_COLOR)
 
     def _draw_time_metric(self, draw, x, y, icon_func, value):
         # Draw Icon & Label
         icon_func(draw, x, y)
         
-        utctime = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S').replace(tzinfo=self.utc_tz)
+        utctime = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=self.utc_tz)
         localtime = utctime.astimezone(self.local_tz)
 
-        draw.text((x + 50, y - 15), f"{localtime.strftime('%Y-%m-%d %H:%M:%S')}", font=self.font_time, fill=(255,255,255))
+        draw.text((x + 50, y - 15), f"{localtime.strftime('%Y-%m-%d %H:%M:%S')}", font=self.font_time, fill=WIDGET_ICON_VALUE_COLOR)
 
     #endregion
 
 if __name__ == "__main__":
-    f = Overlay(True)
+    f = Overlay(debug=True)
     overlay_count = f.process()
     if f.debug:
         print("Debug mode: Only 1 frame generated for testing.")

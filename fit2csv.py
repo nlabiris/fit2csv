@@ -17,6 +17,7 @@ WINDOW_METERS = 50
 ALT_SMOOTH_POINTS = 10
 DECREASE_WINDOW = 5
 INCREASE_WINDOW = 5
+TIMESTAMP_STEP_MS = 500
 
 
 class FIT2CSV:
@@ -38,11 +39,37 @@ class FIT2CSV:
         # Gradient calculation
         points = deque()
 
+        raw_points = []
+
+        for tp in root.xpath(".//tcx:Trackpoint", namespaces=NS):
+            tc_time = self._get_time(tp)
+            lat, lon = self._get_coordinates(tp)
+            alt = self._get_altitude(tp)
+            dist = self._get_distance(tp)
+            gradient = self._calculate_gradient(points, dist, alt)
+            hr = self._get_heart_rate(tp)
+            cadence = self._get_cadence(tp)
+            speed, speed_kmh = self._get_speed(tp)
+            temp = self._find_nearest_temp(tc_time)
+
+            # Keep current row to compare with next one for gap filling
+            raw_points.append({
+                "time": tc_time,
+                "lat": lat,
+                "lon": lon,
+                "alt": alt,
+                "dist": dist,
+                "hr": hr,
+                "cadence": cadence,
+                "speed": speed,
+                "speed_kmh": speed_kmh,
+                "temp": temp,
+                "gradient": gradient
+            })
+
         # CSV setup
         with open(OUTPUT_FILE, "w", newline="") as f:
             writer = csv.writer(f)
-
-            # Header
             writer.writerow([
                 "time",
                 "lat",
@@ -57,68 +84,81 @@ class FIT2CSV:
                 "missing_row"
             ])
 
-            prev_time = None
-            prev_row = None  # store last known values
+            start_time = raw_points[0]["time"]
+            end_time = raw_points[-1]["time"]
+            current_time = start_time
+            i = 0
 
-            # Process Trackpoints
-            for tp in root.xpath(".//tcx:Trackpoint", namespaces=NS):
-                # Time
-                tc_time = self._get_time(tp)
+            # Step precisely every 500ms
+            while current_time <= end_time:
+                # Advance our pointer so p1 and p2 strictly bracket current_time
+                while i < len(raw_points) - 1 and raw_points[i + 1]["time"] <= current_time:
+                    i += 1
 
-                # Position
-                lat, lon = self._get_coordinates(tp)
+                previous_point = raw_points[i]
+                next_point = raw_points[i + 1] if i + 1 < len(raw_points) else previous_point
 
-                # Elevation and distance
-                
-                alt = self._get_altitude(tp)
-                dist = self._get_distance(tp)
+                if previous_point["time"] == current_time or previous_point == next_point:
+                    # Exact time match with a real point
+                    self._write_row(writer, previous_point, is_missing=0)
+                else:
+                    # Interpolate between p1 and p2
+                    gap = (next_point["time"] - previous_point["time"]).total_seconds()
+                    offset = (current_time - previous_point["time"]).total_seconds()
 
-                # Gradient window
-                gradient = self._calculate_gradient(points, dist, alt)
+                    interp_row = self._interpolate_points(current_time, previous_point, next_point, offset, gap)
+                    self._write_row(writer, interp_row, is_missing=1)
 
-                # Heart rate
-                hr = self._get_heart_rate(tp)
-
-                # Cadence
-                cadence = self._get_cadence(tp)
-
-                # Speed (from extensions)
-                speed, speed_kmh = self._get_speed(tp)
-
-                # Temperature from FIT
-                temp = self._find_nearest_temp(tc_time)
-
-                if prev_row and prev_row["speed_kmh"] > 0 and speed_kmh == 0:
-                    speed_kmh = max(prev_row["speed_kmh"] - 1, 0)  # Reduce speed for gap fill
-
-                if prev_row and prev_row["cadence"] > 0 and cadence == 0:
-                    cadence = max(prev_row["cadence"] - 1, 0)  # Reduce cadence for gap fill
-
-                # Keep current row to compare with next one for gap filling
-                row_data = {
-                    "lat": lat,
-                    "lon": lon,
-                    "alt": alt,
-                    "dist": dist,
-                    "hr": hr,
-                    "cadence": cadence,
-                    "speed": speed,
-                    "speed_kmh": speed_kmh,
-                    "temp": temp,
-                    "gradient": round(gradient, 2)
-                }
-
-                # Fill missing seconds
-                if prev_time is not None:
-                    self._fill_missing_seconds(writer, prev_time, prev_row, tc_time, row_data)
-
-                # Write row to CSV
-                self._write_row(writer, tc_time, lat, lon, alt, dist, hr, cadence, speed_kmh, temp, gradient) 
-
-                prev_time = tc_time
-                prev_row = row_data
+                # Move to the next 500ms step
+                current_time += timedelta(milliseconds=TIMESTAMP_STEP_MS)
 
     #region Helpers
+
+    def _interpolate_points(self, current_time, previous_point, next_point, offset, gap):
+        if gap <= 0: return previous_point
+        progress = offset / gap
+
+        # Speed and Cadence Normalization / Gap Logic
+        if gap <= 1.0:
+            # Standard smooth interpolation for normal 1-sec gaps
+            speed = previous_point["speed_kmh"] + (next_point["speed_kmh"] - previous_point["speed_kmh"]) * progress
+            cad = previous_point["cadence"] + (next_point["cadence"] - previous_point["cadence"]) * progress
+        else:
+            # Large gaps (pauses/losses)
+            if offset <= DECREASE_WINDOW:
+                speed = previous_point["speed_kmh"] * (1 - offset / DECREASE_WINDOW)
+                cad = previous_point["cadence"] * (1 - offset / DECREASE_WINDOW)
+            elif offset >= gap - INCREASE_WINDOW:
+                prog = (offset - (gap - INCREASE_WINDOW)) / INCREASE_WINDOW
+                speed = next_point["speed_kmh"] * prog
+                cad = next_point["cadence"] * prog
+            else:
+                speed = 0
+                cad = 0
+
+        # Ensure we don't drop below 0
+        speed = max(0, speed)
+        cad = max(0, cad)
+        
+        # Linear interpolation for standard metrics mapping
+        lat = previous_point["lat"] + (next_point["lat"] - previous_point["lat"]) * progress
+        lon = previous_point["lon"] + (next_point["lon"] - previous_point["lon"]) * progress
+        alt = previous_point["alt"] + (next_point["alt"] - previous_point["alt"]) * progress
+        dist = previous_point["dist"] + (next_point["dist"] - previous_point["dist"]) * progress
+        hr = previous_point["hr"] + (next_point["hr"] - previous_point["hr"]) * progress
+
+        return {
+            "time": current_time,
+            "lat": lat,
+            "lon": lon,
+            "alt": alt,
+            "dist": dist,
+            "hr": hr,
+            "cadence": cad,
+            "speed_kmh": speed,
+            "temp": previous_point["temp"],
+            "gradient": previous_point["gradient"]
+        }
 
     def _load_fit(self):
         for record in self.fit.get_messages("record"):
@@ -202,55 +242,19 @@ class FIT2CSV:
         speed_kmh = speed * 3.6 if speed is not None else 0
         return speed, speed_kmh
 
-    def _fill_missing_seconds(self, writer, prev_time, prev_row, current_time, current_row):
-        gap = int((current_time - prev_time).total_seconds())
-        previous_speed = prev_row["speed_kmh"]
-        current_speed = current_row["speed_kmh"]
-        previous_cadence = prev_row["cadence"]
-        current_cadence = current_row["cadence"]
-        for i in range(1, gap):
-            missing_time = prev_time + timedelta(seconds=i)
-
-            if i <= DECREASE_WINDOW:
-                # Decrease from previous_speed to 0
-                interpolated_speed = previous_speed * (1 - i / DECREASE_WINDOW)
-                interpolated_cadence = previous_cadence * (1 - i / DECREASE_WINDOW)
-            elif i >= gap - INCREASE_WINDOW:
-                # Increase from 0 to current_speed
-                progress = (i - (gap - INCREASE_WINDOW)) / INCREASE_WINDOW
-                interpolated_speed = current_speed * progress
-                interpolated_cadence = current_cadence * progress
-            else:
-                # Stay at 0
-                interpolated_speed = 0
-                interpolated_cadence = 0
-
-            writer.writerow([
-                missing_time.isoformat(),
-                prev_row["lat"],
-                prev_row["lon"],
-                prev_row["alt"],
-                prev_row["dist"],
-                prev_row["hr"],
-                round(interpolated_cadence),
-                interpolated_speed,
-                prev_row["temp"],
-                prev_row["gradient"],
-                1 # mark missing row
-            ])
-
-    def _write_row(self, writer, time, lat, lon, alt, dist, hr, cadence, speed_kmh, temp, gradient):
+    def _write_row(self, writer, data, is_missing):
         writer.writerow([
-            time.isoformat(),
-            lat,
-            lon,
-            alt,
-            dist,
-            hr,
-            cadence,
-            speed_kmh,
-            temp,
-            round(gradient, 2)
+            data["time"].isoformat(timespec='milliseconds') + "Z",
+            data["lat"],
+            data["lon"],
+            round(data["alt"], 2),
+            round(data["dist"]/1000, 2),
+            round(data["hr"]),
+            round(data["cadence"]),
+            round(data["speed_kmh"], 2),
+            data["temp"],
+            round(data["gradient"], 2),
+            is_missing
         ])
 
     #endregion
