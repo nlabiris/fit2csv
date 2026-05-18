@@ -1,5 +1,12 @@
+.env
 *.fit
 *.tcx
 *.csv
 *.xlsx
+*.mp4
+*.mkv
 frames
+
+.venv/
+__pycache__/
+*.pyc
