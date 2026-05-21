@@ -6,6 +6,10 @@ A Python utility tool to process FIT/TCX data to CSV, generate PNG images from i
 - Renders PNG overlay frames per CSV row for video compositing.
 - Merges the generated frames with a source video using `ffmpeg` (supports NVENC and libx265 settings).
 
+Sample video frame screenshot
+
+<img src="sample_frames/sample_video_frame_screenshot.jpg" alt="sample_video_frame_screenshot" width="1280" height="720">
+
 This README documents the final implementation logic and the environment-driven configuration used by `main.py`.
 
 ## FIT -> CSV conversion
