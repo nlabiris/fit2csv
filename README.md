@@ -1,6 +1,6 @@
 # Telemetry dashboard
 
-A Python utility to process Garmin activity telemetry. `main.py` implements a menu-driven tool that:
+A Python utility tool to process FIT/TCX data to CSV, generate PNG images from it and merge them with a video file using FFmpeg. `main.py` implements a menu-driven tool that:
 
 - Converts FIT + TCX telemetry into a uniformly-sampled CSV (default 500ms rows).
 - Renders PNG overlay frames per CSV row for video compositing.
