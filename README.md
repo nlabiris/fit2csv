@@ -1,4 +1,4 @@
-# Telemetry video 
+# Telemetry dashboard
 
 A Python utility to process Garmin activity telemetry. `main.py` implements a menu-driven tool that:
 
