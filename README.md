@@ -150,4 +150,4 @@ The interactive menu matches the implementation and offers:
 
 ## License
 
-Add your license information here.
+This repository is distributed under the terms of the  AGPL-3.0 license, see [LICENSE](https://github.com/nlabiris/telemetry_dashboard/blob/master/LICENSE).
