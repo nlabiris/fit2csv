@@ -1,11 +1,4 @@
-# exiftool -CreateDate /mnt/v/media/video/dji/internal_storage/DCIM/DJI_001/DJI_20260322110703_0004_D.MP4
-# ffmpeg -i /mnt/v/media/video/dji/internal_storage/DCIM/DJI_001/DJI_20260322110703_0004_D.MP4 -framerate 2 -i frames/frame_%05d.png -filter_complex "[0:v][1:v] overlay=0:0:eof_action=pass" -c:v hevc_nvenc -rc vbr -cq 19 -preset slow -c:a copy output_nvenc.mp4
-# ffmpeg -i /mnt/v/media/video/dji/internal_storage/DCIM/DJI_001/DJI_20260322110703_0004_D.MP4 -framerate 1 -i frames/frame_%05d.png -filter_complex "[0:v][1:v] overlay=0:0:eof_action=pass" -c:v libx265 -crf 18 -preset slow -c:a copy output.mp4
-
-#exiftool -CreateDate DJI_20260409152956_0001_D.MP4 - Create Date: 2026:04:09 12:29:57
-#exiftool -CreateDate DJI_20260409161406_0002_D.MP4 - Create Date: 2026:04:09 13:14:08
-#exiftool -CreateDate DJI_20260409162615_0004_D.MP4 - Create Date: 2026:04:09 13:26:16
-#exiftool -CreateDate DJI_20260409165359_0005_D.MP4 - Create Date: 2026:04:09 13:54:00
+import json
 
 from PIL import Image, ImageDraw, ImageFont
 from fitparse import FitFile
@@ -38,52 +31,35 @@ END_TIME = os.getenv("END_TIME")
 
 # FFMPEG settings
 FFMPEG_ENCODER=os.getenv("FFMPEG_ENCODER")
-FFMPEG_RC=os.getenv("FFMPEG_RC")
+FFMPEG_BITRATE=os.getenv("FFMPEG_BITRATE")
+FFMPEG_MAXBITRATE=os.getenv("FFMPEG_MAXBITRATE")
+FFMPEG_BUFSIZE=os.getenv("FFMPEG_BUFSIZE")
+FFMPEG_PRESET=os.getenv("FFMPEG_PRESET")
 FFMPEG_TUNE=os.getenv("FFMPEG_TUNE")
-FFMPEG_MULTIPASS=os.getenv("FFMPEG_MULTIPASS")
+FFMPEG_PROFILE=os.getenv("FFMPEG_PROFILE")
+FFMPEG_RC=os.getenv("FFMPEG_RC")
+FFMPEG_RC_LOOKAHEAD=os.getenv("FFMPEG_RC_LOOKAHEAD")
+FFMPEG_QP=os.getenv("FFMPEG_QP")
 FFMPEG_CQ=os.getenv("FFMPEG_CQ")
+FFMPEG_QMIN=os.getenv("FFMPEG_QMIN")
+FFMPEG_QMAX=os.getenv("FFMPEG_QMAX")
+FFMPEG_CRF=os.getenv("FFMPEG_CRF")
+FFMPEG_PIX_FMT=os.getenv("FFMPEG_PIX_FMT")
+FFMPEG_LIBX265_PARAMS=os.getenv("FFMPEG_LIBX265_PARAMS")
 
 # Processing settings
-TIME_TOLERANCE = 2
-WINDOW_METERS = 50
-DECREASE_WINDOW = 5
-INCREASE_WINDOW = 5
-TIMESTAMP_STEP_MS = 500
+TIME_TOLERANCE = int(os.getenv("TIME_TOLERANCE", 2))
+WINDOW_METERS = int(os.getenv("WINDOW_METERS", 20))
+DECREASE_WINDOW = int(os.getenv("DECREASE_WINDOW", 5))
+INCREASE_WINDOW = int(os.getenv("INCREASE_WINDOW", 5))
+TIMESTAMP_STEP_MS = int(os.getenv("TIMESTAMP_STEP_MS", 500))
 FFMPEG_FRAMERATE = int((1 / TIMESTAMP_STEP_MS) * 1000)
 
 # Overlay frames settings
-OUTPUT_FOLDER = "frames"
-OVERLAY_WIDTH = 1920
-OVERLAY_HEIGHT = 1080
+OUTPUT_FOLDER = os.getenv("OUTPUT_FOLDER")
+OVERLAY_WIDTH = int(os.getenv("OVERLAY_WIDTH"))
+OVERLAY_HEIGHT = int(os.getenv("OVERLAY_HEIGHT"))
 FONT_PATH = os.getenv("FONT_PATH")
-
-# Widget settings
-WIDGET_ICON_VALUE_COLOR = (255, 255, 255)
-WIDGET_ICON_LABEL_COLOR = (220, 220, 220)
-WIDGET_ICON_UNIT_COLOR = (220, 220, 220)
-
-CLOCK_ICON_COLOR_OUTLINE = (0, 0, 0)
-CLOCK_ICON_COLOR_LINES = (255, 255, 255)
-
-ELEVATION_ICON_COLOR_PEAK = (0, 0, 0)
-ELEVATION_ICON_COLOR_MOUNTAIN = (255, 255, 255)
-
-DISTANCE_ICON_COLOR_PAVEMENT = (0, 0, 0)
-DISTANCE_ICON_COLOR_LINES = (255, 255, 255)
-
-CADENCE_ICON_COLOR_CRANK = (0, 0, 0)
-CADENCE_ICON_COLOR_PEDALS = (255, 255, 255)
-
-HEARTRATE_ICON_COLOR = (255, 50, 50)
-
-SPEEDOMETER_ICON_ARC_COLOR = (60, 60, 60, 255)
-SPEEDOMETER_ICON_ARC_TICKS_COLOR = (150, 150, 150)
-SPEEDOMETER_ICON_SPEED_COLOR_GREEN = (50, 255, 50)
-SPEEDOMETER_ICON_SPEED_COLOR_YELLOW = (255, 200, 50)
-SPEEDOMETER_ICON_SPEED_COLOR_RED = (255, 50, 50)
-SPEEDOMETER_ICON_VALUE_COLOR = (255, 255, 255)
-SPEEDOMETER_ICON_UNIT_COLOR = (200, 200, 200)
-
 
 class FIT2CSV:
     fit: FitFile
@@ -331,9 +307,11 @@ class Overlay:
     max_speed: float
     font_speed: ImageFont.FreeTypeFont
     font_time: ImageFont.FreeTypeFont
-    font_metrics: ImageFont.FreeTypeFont
-    font_labels: ImageFont.FreeTypeFont
+    font_value: ImageFont.FreeTypeFont
+    font_label: ImageFont.FreeTypeFont
+    font_unit: ImageFont.FreeTypeFont
     panel_bg: tuple[int, int, int, int]
+    WIDGETS_CONFIG: dict[str, tuple[int, int, int]]
 
     def __init__(self, debug=False):
         self.debug = debug
@@ -342,11 +320,15 @@ class Overlay:
         font_path = FONT_PATH
         self.font_speed = ImageFont.truetype(font_path, 85)
         self.font_time = ImageFont.truetype(font_path, 40)
-        self.font_metrics = ImageFont.truetype(font_path, 50)
-        self.font_labels = ImageFont.truetype(font_path, 25)
+        self.font_value = ImageFont.truetype(font_path, 50)
+        self.font_label = ImageFont.truetype(font_path, 25)
+        self.font_unit = ImageFont.truetype(font_path, 30)
 
         # Panel Background Color: (Red, Green, Blue, Alpha) -> 0 is fully transparent, 255 is solid
         self.panel_bg = (0, 0, 0, 0)
+
+        # Load widget configuration
+        self.WIDGETS_CONFIG = self.load_widget_config()
 
     def process(self):
         self._create_overlay_directory()
@@ -385,6 +367,22 @@ class Overlay:
 
     #region Helpers
 
+    def load_widget_config(self):
+        # 1. Fetch the raw JSON string from your environment
+        raw_json = os.getenv("WIDGETS_CONFIG")
+
+        if raw_json:
+            # 2. Parse the string into a dictionary of lists
+            raw_colors = json.loads(raw_json)
+
+            # 3. Convert the lists into tuples so your graphics library gets exactly what it expects
+            colors = {key: tuple(value) for key, value in raw_colors.items()}
+        else:
+            colors = {}
+            print("Warning: WIDGETS_CONFIG not found in environment!")
+
+        return colors
+
     def _load_csv(self):
         data = []
         with open(CSV_FILE, newline='') as f:
@@ -417,44 +415,44 @@ class Overlay:
             print(f"Processed {index} frames...")
 
     def _draw_clock_icon(self, draw, x, y):
-        draw.ellipse((x, y, x+24, y+24), outline=CLOCK_ICON_COLOR_OUTLINE, width=3)
-        draw.line((x+12, y+12, x+12, y+5), fill=CLOCK_ICON_COLOR_LINES, width=3)
-        draw.line((x+12, y+12, x+18, y+12), fill=CLOCK_ICON_COLOR_LINES, width=3)
+        draw.ellipse((x, y, x+24, y+24), outline=self.WIDGETS_CONFIG["CLOCK_ICON_COLOR_OUTLINE"], width=3)
+        draw.line((x+12, y+12, x+12, y+5), fill=self.WIDGETS_CONFIG["CLOCK_ICON_COLOR_LINES"], width=3)
+        draw.line((x+12, y+12, x+18, y+12), fill=self.WIDGETS_CONFIG["CLOCK_ICON_COLOR_LINES"], width=3)
 
     def _draw_mountain_icon(self, draw, x, y):
-        draw.polygon([(x+12, y), (x, y+24), (x+24, y+24)], fill=ELEVATION_ICON_COLOR_PEAK)
-        draw.polygon([(x+12, y), (x+6, y+12), (x+12, y+15), (x+18, y+12)], fill=ELEVATION_ICON_COLOR_MOUNTAIN)
+        draw.polygon([(x+12, y), (x, y+24), (x+24, y+24)], fill=self.WIDGETS_CONFIG["ELEVATION_ICON_COLOR_PEAK"])
+        draw.polygon([(x+12, y), (x+6, y+12), (x+12, y+15), (x+18, y+12)], fill=self.WIDGETS_CONFIG["ELEVATION_ICON_COLOR_MOUNTAIN"])
 
     def _draw_road_icon(self, draw, x, y):
-        draw.polygon([(x+8, y), (x+16, y), (x+24, y+24), (x, y+24)], fill=DISTANCE_ICON_COLOR_PAVEMENT)
-        draw.line((x+12, y+4, x+12, y+10), fill=DISTANCE_ICON_COLOR_LINES, width=2)
-        draw.line((x+12, y+14, x+12, y+20), fill=DISTANCE_ICON_COLOR_LINES, width=2)
+        draw.polygon([(x+8, y), (x+16, y), (x+24, y+24), (x, y+24)], fill=self.WIDGETS_CONFIG["DISTANCE_ICON_COLOR_PAVEMENT"])
+        draw.line((x+12, y+4, x+12, y+10), fill=self.WIDGETS_CONFIG["DISTANCE_ICON_COLOR_LINES"], width=2)
+        draw.line((x+12, y+14, x+12, y+20), fill=self.WIDGETS_CONFIG["DISTANCE_ICON_COLOR_LINES"], width=2)
 
     def _draw_pedal_icon(self, draw, x, y, pedal_icon=True):
         if pedal_icon:
-            draw.line((x-4, y+2, x+4, y+2), fill=CADENCE_ICON_COLOR_PEDALS, width=3)
-            draw.line((x+12, y+12, x+2, y+2), fill=CADENCE_ICON_COLOR_PEDALS, width=3)
-            draw.ellipse((x+4, y+4, x+20, y+20), outline=CADENCE_ICON_COLOR_CRANK, width=3)
-            draw.line((x+20, y+20, x+2, y+2), fill=CADENCE_ICON_COLOR_PEDALS, width=3)
-            draw.line((x+20, y+20, x+26, y+20), fill=CADENCE_ICON_COLOR_PEDALS, width=3)
-            draw.ellipse((x+10, y+10, x+14, y+14), outline=CADENCE_ICON_COLOR_CRANK, width=3)
+            draw.line((x-4, y+2, x+4, y+2), fill=self.WIDGETS_CONFIG["CADENCE_ICON_COLOR_PEDALS"], width=3)
+            draw.line((x+12, y+12, x+2, y+2), fill=self.WIDGETS_CONFIG["CADENCE_ICON_COLOR_PEDALS"], width=3)
+            draw.ellipse((x+4, y+4, x+20, y+20), outline=self.WIDGETS_CONFIG["CADENCE_ICON_COLOR_CRANK"], width=3)
+            draw.line((x+20, y+20, x+2, y+2), fill=self.WIDGETS_CONFIG["CADENCE_ICON_COLOR_PEDALS"], width=3)
+            draw.line((x+20, y+20, x+26, y+20), fill=self.WIDGETS_CONFIG["CADENCE_ICON_COLOR_PEDALS"], width=3)
+            draw.ellipse((x+10, y+10, x+14, y+14), outline=self.WIDGETS_CONFIG["CADENCE_ICON_COLOR_CRANK"], width=3)
         else:
-            draw.ellipse((x+4, y+4, x+20, y+20), outline=CADENCE_ICON_COLOR_CRANK, width=3)
-            draw.line((x+12, y+12, x+2, y+2), fill=CADENCE_ICON_COLOR_PEDALS, width=3)
-            draw.ellipse((x, y, x+4, y+4), fill=CADENCE_ICON_COLOR_PEDALS)
+            draw.ellipse((x+4, y+4, x+20, y+20), outline=self.WIDGETS_CONFIG["CADENCE_ICON_COLOR_CRANK"], width=3)
+            draw.line((x+12, y+12, x+2, y+2), fill=self.WIDGETS_CONFIG["CADENCE_ICON_COLOR_PEDALS"], width=3)
+            draw.ellipse((x, y, x+4, y+4), fill=self.WIDGETS_CONFIG["CADENCE_ICON_COLOR_PEDALS"], width=3)
 
     def _draw_heart_icon(self, draw, x, y):
         # Simplified diamond/heart
-        draw.polygon([(x+12, y+24), (x, y+8), (x+6, y), (x+12, y+6), (x+18, y), (x+24, y+8)], fill=HEARTRATE_ICON_COLOR)
+        draw.polygon([(x+12, y+24), (x, y+8), (x+6, y), (x+12, y+6), (x+18, y), (x+24, y+8)], fill=self.WIDGETS_CONFIG["HEARTRATE_ICON_COLOR"])
 
     def _draw_speedometer(self, draw, center, radius, speed):
         x, y = center
-        start_angle = 135  # Bottom left
-        end_angle = 405    # Bottom right (360 + 45)
+        start_angle = 135 # Bottom left
+        end_angle = 405 # Bottom right
         gauge_width = 20
 
         # 1. Background Arc (Dark grey track)
-        draw.arc([x-radius, y-radius, x+radius, y+radius], start_angle, end_angle, fill=SPEEDOMETER_ICON_ARC_COLOR, width=gauge_width)
+        draw.arc([x-radius, y-radius, x+radius, y+radius], start_angle, end_angle, fill=self.WIDGETS_CONFIG["SPEEDOMETER_ICON_ARC_COLOR"], width=gauge_width)
 
         # 2. Colored Speed Arc
         speed_pct = min(max(speed / self.max_speed, 0), 1.0) # Clamp between 0 and 1
@@ -462,11 +460,11 @@ class Overlay:
         
         # Gradient logic (Green -> Yellow -> Red)
         if speed_pct < 0.5:
-            color = SPEEDOMETER_ICON_SPEED_COLOR_GREEN  # Green
+            color = self.WIDGETS_CONFIG["SPEEDOMETER_ICON_SPEED_COLOR_GREEN"]  # Green
         elif speed_pct < 0.8:
-            color = SPEEDOMETER_ICON_SPEED_COLOR_YELLOW # Yellow
+            color = self.WIDGETS_CONFIG["SPEEDOMETER_ICON_SPEED_COLOR_YELLOW"] # Yellow
         else:
-            color = SPEEDOMETER_ICON_SPEED_COLOR_RED  # Red
+            color = self.WIDGETS_CONFIG["SPEEDOMETER_ICON_SPEED_COLOR_RED"]  # Red
 
         if current_angle > start_angle:
             draw.arc([x-radius, y-radius, x+radius, y+radius], start_angle, current_angle, fill=color, width=gauge_width)
@@ -478,28 +476,28 @@ class Overlay:
             in_y = y + (radius - 5) * math.sin(rad)
             out_x = x + (radius + 10) * math.cos(rad)
             out_y = y + (radius + 10) * math.sin(rad)
-            draw.line((in_x, in_y, out_x, out_y), fill=SPEEDOMETER_ICON_ARC_TICKS_COLOR, width=3)
+            draw.line((in_x, in_y, out_x, out_y), fill=self.WIDGETS_CONFIG["SPEEDOMETER_ICON_ARC_TICKS_COLOR"], width=3)
 
         # 4. Center Speed Text
         speed_str = f"{speed:.1f}"
         speed_w = draw.textlength(speed_str, font=self.font_speed)
-        draw.text((x - speed_w/2, y - 40), speed_str, font=self.font_speed, fill=SPEEDOMETER_ICON_VALUE_COLOR)
+        draw.text((x - speed_w/2, y - 60), speed_str, font=self.font_speed, fill=self.WIDGETS_CONFIG["SPEEDOMETER_ICON_VALUE_COLOR"])
         
         unit_str = "km/h"
-        unit_w = draw.textlength(unit_str, font=self.font_labels)
-        draw.text((x - unit_w/2, y + 45), unit_str, font=self.font_labels, fill=SPEEDOMETER_ICON_UNIT_COLOR)
+        unit_w = draw.textlength(unit_str, font=self.font_unit)
+        draw.text((x - unit_w/2, y + 45), unit_str, font=self.font_unit, fill=self.WIDGETS_CONFIG["SPEEDOMETER_ICON_UNIT_COLOR"])
 
     def _draw_metric(self, draw, x, y, icon_func, label, value, unit):
         # Draw Icon & Label
         icon_func(draw, x, y)
-        draw.text((x + 35, y), label, font=self.font_labels, fill=WIDGET_ICON_LABEL_COLOR)
+        draw.text((x + 35, y), label, font=self.font_label, fill=self.WIDGETS_CONFIG["WIDGET_ICON_LABEL_COLOR"])
         
         # Draw Value
-        draw.text((x, y + 30), value, font=self.font_metrics, fill=WIDGET_ICON_VALUE_COLOR)
-        val_w = draw.textlength(value, font=self.font_metrics)
+        draw.text((x, y + 35), value, font=self.font_value, fill=self.WIDGETS_CONFIG["WIDGET_ICON_VALUE_COLOR"])
+        val_w = draw.textlength(value, font=self.font_value)
         
         # Draw Unit right next to the value
-        draw.text((x + val_w + 10, y + 60), unit, font=self.font_labels, fill=WIDGET_ICON_UNIT_COLOR)
+        draw.text((x + val_w + 10, y + 55), unit, font=self.font_unit, fill=self.WIDGETS_CONFIG["WIDGET_ICON_UNIT_COLOR"])
 
     def _draw_time_metric(self, draw, x, y, icon_func, value):
         # Draw Icon & Label
@@ -508,7 +506,7 @@ class Overlay:
         utctime = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=self.utc_tz)
         localtime = utctime.astimezone(self.local_tz)
 
-        draw.text((x + 50, y - 15), f"{localtime.strftime('%Y-%m-%d %H:%M:%S')}", font=self.font_time, fill=WIDGET_ICON_VALUE_COLOR)
+        draw.text((x + 50, y - 15), f"{localtime.strftime('%Y-%m-%d %H:%M:%S')}", font=self.font_time, fill=self.WIDGETS_CONFIG["WIDGET_ICON_VALUE_COLOR"])
 
     #endregion
 
@@ -530,7 +528,9 @@ def display_menu():
 def merge_video():
     """Merge input video with overlay frames using ffmpeg."""
 
-    cmd = ["ffmpeg"]
+    cmd = ["ffmpeg", "-hide_banner"]
+
+    # Input frames as a video stream with specified framerate
     cmd.extend([
         "-framerate", str(FFMPEG_FRAMERATE),
         "-i", "frames/frame_%05d.png"
@@ -544,23 +544,50 @@ def merge_video():
     if END_TIME:
         cmd.extend(["-to", END_TIME])
     
+    # Main input video and overlay filter
     cmd.extend([
         "-i", INPUT_VIDEO_PATH,
         "-filter_complex", f"[0:v]fps={INPUT_VIDEO_FPS}[overlay_stream]; [1:v][overlay_stream] overlay=0:0:eof_action=pass:format=yuv420p10",
-        "-c:v", FFMPEG_ENCODER,
-        "-rc", FFMPEG_RC, # "-rc", "constqp",
-        "-tune", FFMPEG_TUNE,
-        "-multipass", FFMPEG_MULTIPASS,
-        "-cq", FFMPEG_CQ, # "-qp", "21",
-        "-b:v", "0", # NVIDIA internally forces a hidden, low default bitrate (often 2 Mbps). To "unlock" the encoder so that your -cq value can actually ask for more data during dense frames, you must explicitly set -b:v 0.
-        "-pix_fmt", "p010le",
-        "-c:a", "copy",
-        "-map", "0:a?",
-        "-map", "0:d?",
-        "-map", "0:t?",
-        "-movflags", "+frag_keyframe+empty_moov",
-        OUTPUT_VIDEO_PATH
     ])
+
+    # Video encoding settings
+    cmd.extend([
+        "-c:v", FFMPEG_ENCODER
+    ])
+
+    if FFMPEG_ENCODER == "hevc_nvenc":
+        cmd.extend([
+            "-b:v", FFMPEG_BITRATE,
+            "-maxrate:v", FFMPEG_MAXBITRATE,
+            "-bufsize:v", FFMPEG_BUFSIZE,
+            "-preset", FFMPEG_PRESET,
+            "-tune", FFMPEG_TUNE,
+            "-profile:v", FFMPEG_PROFILE,
+            "-rc", FFMPEG_RC,
+            "-rc-lookahead", FFMPEG_RC_LOOKAHEAD,
+            "-cq", FFMPEG_CQ,
+            "-qmin", FFMPEG_QMIN,
+            "-qmax", FFMPEG_QMAX,
+            "-pix_fmt", FFMPEG_PIX_FMT,
+            "-c:a", "copy",
+            "-tag:v", "hvc1", # to make compatible with Apple "industry standard" H.265
+            "-movflags", "+frag_keyframe+empty_moov",
+            OUTPUT_VIDEO_PATH
+        ])
+    elif FFMPEG_ENCODER == "libx265":
+        cmd.extend([
+            "-crf", FFMPEG_CRF,
+            "-preset", FFMPEG_PRESET,
+            "-pix_fmt", FFMPEG_PIX_FMT,
+            "-x265-params", FFMPEG_LIBX265_PARAMS,
+            "-c:a", "copy",
+            "-tag:v", "hvc1", # to make compatible with Apple "industry standard" H.265
+            "-movflags", "+frag_keyframe+empty_moov",
+            OUTPUT_VIDEO_PATH
+        ])
+    else:
+        print(f"Unsupported encoder: {FFMPEG_ENCODER}")
+        return
 
     try:
         print(f"\nExecuting ffmpeg...")
