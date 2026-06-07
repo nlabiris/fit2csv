@@ -60,6 +60,7 @@ OUTPUT_FOLDER = os.getenv("OUTPUT_FOLDER")
 OVERLAY_WIDTH = int(os.getenv("OVERLAY_WIDTH"))
 OVERLAY_HEIGHT = int(os.getenv("OVERLAY_HEIGHT"))
 FONT_PATH = os.getenv("FONT_PATH")
+OTHER_THEME = os.getenv("OTHER_THEME", "False").lower() == "true"
 
 class FIT2CSV:
     fit: FitFile
@@ -318,14 +319,22 @@ class Overlay:
         self.local_tz = ZoneInfo("Europe/Athens")
         self.utc_tz = ZoneInfo("UTC")
         font_path = FONT_PATH
-        self.font_speed = ImageFont.truetype(font_path, 85)
-        self.font_time = ImageFont.truetype(font_path, 40)
-        self.font_value = ImageFont.truetype(font_path, 50)
-        self.font_label = ImageFont.truetype(font_path, 25)
-        self.font_unit = ImageFont.truetype(font_path, 30)
+        if OTHER_THEME:
+            self.font_speed = ImageFont.truetype(font_path, 90)
+            self.font_time = ImageFont.truetype(font_path, 32)
+            self.font_value = ImageFont.truetype(font_path, 52)
+            self.font_label = ImageFont.truetype(font_path, 20)
+            self.font_unit = ImageFont.truetype(font_path, 24)
+        else:
+            self.font_speed = ImageFont.truetype(font_path, 85)
+            self.font_time = ImageFont.truetype(font_path, 40)
+            self.font_value = ImageFont.truetype(font_path, 50)
+            self.font_label = ImageFont.truetype(font_path, 25)
+            self.font_unit = ImageFont.truetype(font_path, 30)
 
         # Panel Background Color: (Red, Green, Blue, Alpha) -> 0 is fully transparent, 255 is solid
-        self.panel_bg = (0, 0, 0, 0)
+        if not OTHER_THEME:
+            self.panel_bg = (0, 0, 0, 0)
 
         # Load widget configuration
         self.WIDGETS_CONFIG = self.load_widget_config()
@@ -337,25 +346,42 @@ class Overlay:
         for i, row in enumerate(data):
             draw, img = self._setup_overlay()
 
-            # --- DRAW BACKGROUND PANELS ---
-            # Top-Left Panel (Timestamp)
-            # draw.rounded_rectangle([30, 20, 480, 100], radius=15, fill=panel_bg)
-            
-            # Middle-Left Panel (Elevation & Distance)
-            # draw.rounded_rectangle([30, 220, 380, 580], radius=20, fill=panel_bg)
-            
-            # Middle-Right Panel (Cadence & Heart Rate)
-            # draw.rounded_rectangle([width-430, 220, width-50, 580], radius=20, fill=panel_bg)
-            
-            # Bottom-Right Panel (Speedometer)
-            # draw.rounded_rectangle([width-430, height-430, width-70, height-70], radius=25, fill=panel_bg)
+            if not OTHER_THEME:
+                self._draw_time_metric(draw, 30, 20, self._draw_clock_icon, row['time'])
+                self._draw_metric(draw, 30, 100, self._draw_mountain_icon, "Elevation", f"{float(row['elevation']):.0f}", "m")
+                self._draw_metric(draw, 30, 220, self._draw_road_icon, "Total Distance", f"{float(row['distance']):.2f}", "km")
+                self._draw_metric(draw, OVERLAY_WIDTH-200, 50, self._draw_pedal_icon, "Cadence", f"{row['cadence']}", "rpm")
+                self._draw_metric(draw, OVERLAY_WIDTH-200, 180, self._draw_heart_icon, "Heart Rate", f"{row['heart_rate']}", "bpm")
+                self._draw_speedometer(draw, center=(OVERLAY_WIDTH-170, OVERLAY_HEIGHT-150), radius=140, speed=float(row['speed_kmh']))
 
-            self._draw_time_metric(draw, 30, 20, self._draw_clock_icon, row['time'])
-            self._draw_metric(draw, 30, 100, self._draw_mountain_icon, "Elevation", f"{float(row['elevation']):.0f}", "m")
-            self._draw_metric(draw, 30, 220, self._draw_road_icon, "Total Distance", f"{float(row['distance']):.2f}", "km")
-            self._draw_metric(draw, OVERLAY_WIDTH-200, 50, self._draw_pedal_icon, "Cadence", f"{row['cadence']}", "rpm")
-            self._draw_metric(draw, OVERLAY_WIDTH-200, 180, self._draw_heart_icon, "Heart Rate", f"{row['heart_rate']}", "bpm")
-            self._draw_speedometer(draw, center=(OVERLAY_WIDTH-170, OVERLAY_HEIGHT-150), radius=140, speed=float(row['speed_kmh']))
+                # --- DRAW BACKGROUND PANELS ---
+                # Top-Left Panel (Timestamp)
+                # draw.rounded_rectangle([30, 20, 480, 100], radius=15, fill=panel_bg)
+                
+                # Middle-Left Panel (Elevation & Distance)
+                # draw.rounded_rectangle([30, 220, 380, 580], radius=20, fill=panel_bg)
+                
+                # Middle-Right Panel (Cadence & Heart Rate)
+                # draw.rounded_rectangle([width-430, 220, width-50, 580], radius=20, fill=panel_bg)
+                
+                # Bottom-Right Panel (Speedometer)
+                # draw.rounded_rectangle([width-430, height-430, width-70, height-70], radius=25, fill=panel_bg)
+            else:
+                 # 1. TOP LEFT: Minimalist pill badge for Timestamp
+                self._draw_modern_time(draw, 40, 40, row['time'])
+
+                # 2. MIDDLE LEFT: Stacked modular data cards (Elevation & Distance)
+                self._draw_modern_card(draw, 40, 140, 340, 110, self._draw_mountain_icon, "ELEVATION", f"{float(row['elevation']):.0f}", "m")
+                self._draw_modern_card(draw, 40, 270, 340, 110, self._draw_road_icon, "DISTANCE", f"{float(row['distance']):.2f}", "km")
+
+                # 3. BOTTOM LEFT / FLOATING CORNER: Performance metrics
+                self._draw_modern_card(draw, 40, 400, 340, 110, self._draw_pedal_icon, "CADENCE", f"{row['cadence']}", "rpm")
+                self._draw_modern_card(draw, 40, 530, 340, 110, self._draw_heart_icon, "HEART RATE", f"{row['heart_rate']}", "bpm", is_critical=(int(row['heart_rate']) > 160))
+
+                # 4. BOTTOM RIGHT: High-End Circular HUD Dial Speedometer
+                # self._draw_hud_speedometer(draw, img, center=(OVERLAY_WIDTH - 220, OVERLAY_HEIGHT - 220), radius=160, speed=float(row['speed_kmh']))
+                self._draw_speedometer(draw, center=(OVERLAY_WIDTH-170, OVERLAY_HEIGHT-150), radius=140, speed=float(row['speed_kmh']))
+
             self._save_overlay(img, i)
             self._report_progress(i)
 
@@ -560,6 +586,69 @@ class Overlay:
         unit_str = "km/h" # Substituting 'mph' for your dataset's km/h
         draw.text((cx + radius - 60, cy + radius - 10), unit_str, font=self.font_unit, fill=(255, 255, 255, 255))
 
+    def _draw_hud_speedometer(self, draw, img, center, radius, speed):
+        """
+        Renders a futuristic HUD style circular glass gauge.
+        Features a dual ring track, a smooth sweeping tail gradient bar, and central numeric projection.
+        """
+        cx, cy = center
+        # Configuration angles mapping clockwise sweeps
+        start_angle, end_angle = 150, 390
+        total_angle_span = end_angle - start_angle
+        
+        # Speed ratio calculations 
+        speed_pct = min(max(speed / max(self.max_speed, 1.0), 0.0), 1.0)
+        current_angle = start_angle + (speed_pct * total_angle_span)
+        
+        # 1. Draw outer sleek ambient shadow bounding background ring
+        draw.ellipse([cx - radius, cy - radius, cx + radius, cy + radius], outline=self.WIDGETS_CONFIG["PANEL_BG"], width=32)
+        
+        # 2. Draw interior translucent passive telemetry tracking arc
+        draw.arc([cx - radius + 8, cy - radius + 8, cx + radius - 8, cy + radius - 8], 
+                 start_angle, end_angle, fill=self.WIDGETS_CONFIG["GAUGE_TRACK"], width=12)
+
+        # 3. Advanced Multi-step Speed Sweeping Gradient Trace Line
+        # Splitting progress into minor steps replicates custom smooth anti-aliased pipelines
+        steps = int(max(1, speed_pct * 45))
+        base_color = self.WIDGETS_CONFIG["ACCENT_CYAN"]
+        
+        for idx in range(steps + 1):
+            step_progress = idx / 45
+            angle_step_start = start_angle + (step_progress * total_angle_span)
+            # Ensure the arc steps do not exceed calculations
+            angle_step_end = min(angle_step_start + (total_angle_span / 45), current_angle)
+            
+            # Dynamic fading tail alpha calculus
+            alpha = int(55 + (idx / steps) * 200) if steps > 0 else 255
+            step_color = (base_color[0], base_color[1], base_color[2], alpha)
+            
+            if angle_step_end > angle_step_start:
+                draw.arc([cx - radius + 8, cy - radius + 8, cx + radius - 8, cy + radius - 8], 
+                         angle_step_start, angle_step_end, fill=step_color, width=12)
+
+        # 4. Draw Radial HUD Digital Ticks Around Rim Geometry
+        for tick_angle in range(start_angle, end_angle + 1, 15):
+            rad = math.radians(tick_angle)
+            # Switch accent thresholds on high speed intervals
+            is_active = (tick_angle <= current_angle)
+            tick_color = self.WIDGETS_CONFIG["ACCENT_CYAN"] if is_active else self.WIDGETS_CONFIG["GAUGE_TRACK"]
+            
+            r_in = radius - 24 if is_active else radius - 20
+            r_out = radius - 12
+            
+            in_x, in_y = cx + r_in * math.cos(rad), cy + r_in * math.sin(rad)
+            out_x, out_y = cx + r_out * math.cos(rad), cy + r_out * math.sin(rad)
+            draw.line((in_x, in_y, out_x, out_y), fill=tick_color, width=3 if is_active else 2)
+
+        # 5. Core Information Center Callouts
+        speed_str = f"{speed:.1f}"
+        speed_w = draw.textlength(speed_str, font=self.font_speed)
+        draw.text((cx - speed_w / 2, cy - 65), speed_str, font=self.font_speed, fill=self.WIDGETS_CONFIG["TEXT_MAIN"])
+        
+        unit_str = "KM/H"
+        unit_w = draw.textlength(unit_str, font=self.font_unit)
+        draw.text((cx - unit_w / 2, cy + 30), unit_str, font=self.font_unit, fill=self.WIDGETS_CONFIG["TEXT_MUTED"])
+
     def _draw_metric(self, draw, x, y, icon_func, label, value, unit):
         # Draw Icon & Label
         icon_func(draw, x, y)
@@ -572,6 +661,25 @@ class Overlay:
         # Draw Unit right next to the value
         draw.text((x + val_w + 10, y + 55), unit, font=self.font_unit, fill=self.WIDGETS_CONFIG["WIDGET_ICON_UNIT_COLOR"])
 
+    def _draw_modern_card(self, draw, x, y, w, h, icon_func, label, value, unit, is_critical=False):
+        accent_color = self.WIDGETS_CONFIG["ACCENT_MAGENTA"] if is_critical else self.WIDGETS_CONFIG["ACCENT_CYAN"]
+        
+        # Base container structure
+        draw.rounded_rectangle([x, y, x + w, y + h], radius=16, fill=self.WIDGETS_CONFIG["PANEL_BG"])
+        draw.rounded_rectangle([x + 6, y + 6, x + w - 6, y + h - 6], radius=12, fill=self.WIDGETS_CONFIG["CARD_BG"])
+        
+        # Design anchor strip accent on the left border edges
+        draw.rounded_rectangle([x + 10, y + 20, x + 16, y + h - 20], radius=3, fill=accent_color)
+        
+        # Labels and contextual data
+        icon_func(draw, x + 25, y + 20)
+        draw.text((x + 60, y + 20), label, font=self.font_label, fill=self.WIDGETS_CONFIG["TEXT_MUTED"])
+        
+        # Values with dynamic padding alignment offset rules
+        draw.text((x + 30, y + 45), value, font=self.font_value, fill=self.WIDGETS_CONFIG["TEXT_MAIN"])
+        val_w = draw.textlength(value, font=self.font_value)
+        draw.text((x + 35 + val_w, y + 64), unit, font=self.font_unit, fill=accent_color)
+
     def _draw_time_metric(self, draw, x, y, icon_func, value):
         # Draw Icon & Label
         icon_func(draw, x, y)
@@ -580,6 +688,23 @@ class Overlay:
         localtime = utctime.astimezone(self.local_tz)
 
         draw.text((x + 50, y - 15), f"{localtime.strftime('%Y-%m-%d %H:%M:%S')}", font=self.font_time, fill=self.WIDGETS_CONFIG["WIDGET_ICON_VALUE_COLOR"])
+
+    def _draw_modern_time(self, draw, x, y, iso_timestamp):
+        utctime = datetime.strptime(iso_timestamp, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=self.utc_tz)
+        localtime = utctime.astimezone(self.local_tz)
+        time_str = localtime.strftime('%H:%M:%S')
+        date_str = localtime.strftime('%b %d, %Y').upper()
+        
+        # Render clean unified bounding pill
+        w_time = draw.textlength(time_str, font=self.font_time)
+        w_date = draw.textlength(date_str, font=self.font_label)
+        total_w = max(w_time, w_date) + 60
+        
+        draw.rounded_rectangle([x, y, x + total_w, y + 75], radius=12, fill=self.WIDGETS_CONFIG["PANEL_BG"])
+        self._draw_clock_icon(draw, x + 15, y + 25)
+        
+        draw.text((x + 50, y + 8), time_str, font=self.font_time, fill=self.WIDGETS_CONFIG["TEXT_MAIN"])
+        draw.text((x + 50, y + 45), date_str, font=self.font_label, fill=self.WIDGETS_CONFIG["ACCENT_CYAN"])
 
     #endregion
 
