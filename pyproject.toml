@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "fit2csv"
+name = "telemetry_dashboard"
 version = "0.1.0"
 description = "Convert FIT activity files to CSV and TCX formats and generate PNG files with telemetry widgets for use as a video overlay"
 readme = "README.md"

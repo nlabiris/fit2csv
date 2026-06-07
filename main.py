@@ -487,6 +487,79 @@ class Overlay:
         unit_w = draw.textlength(unit_str, font=self.font_unit)
         draw.text((x - unit_w/2, y + 45), unit_str, font=self.font_unit, fill=self.WIDGETS_CONFIG["SPEEDOMETER_ICON_UNIT_COLOR"])
 
+    def _draw_dji_speedometer(self, draw, center, radius, speed):
+        cx, cy = center
+        # The gauge in the image starts around bottom-left and ends bottom-right
+        start_angle = 140
+        end_angle = 400
+        total_angle = end_angle - start_angle
+        
+        # --- 1. Draw Outer Bezels ---
+        # Thick light-grey outer track
+        draw.arc([cx - radius, cy - radius, cx + radius, cy + radius], 
+                 start_angle, end_angle, fill=(200, 200, 200, 180), width=18)
+        
+        # Thin white line on the very outside edge
+        draw.arc([cx - radius - 10, cy - radius - 10, cx + radius + 10, cy + radius + 10], 
+                 start_angle, end_angle, fill=(230, 230, 230, 200), width=3)
+
+        # --- 2. Draw Segmented Colored Inner Track ---
+        inner_radius = radius - 18
+        track_width = 14
+        gap_degrees = 4  # The visual gap between the colored segments
+        
+        # Define the segments based on your image: (start_pct, end_pct, RGBA_color)
+        segments = [
+            (0.00, 0.25, (130, 200, 60, 255)),   # Green
+            (0.25, 0.55, (245, 190, 20, 255)),   # Yellow
+            (0.55, 0.85, (235, 110, 20, 255)),   # Orange
+            (0.85, 1.00, (210, 40, 40, 255))     # Red
+        ]
+        
+        for start_pct, end_pct, color in segments:
+            seg_start = start_angle + (start_pct * total_angle)
+            # Apply the gap to the end of the segment, unless it's the very last segment
+            seg_end = start_angle + (end_pct * total_angle) - (gap_degrees if end_pct < 1.0 else 0)
+            
+            if seg_end > seg_start:
+                draw.arc([cx - inner_radius, cy - inner_radius, cx + inner_radius, cy + inner_radius],
+                         seg_start, seg_end, fill=color, width=track_width)
+
+        # --- 3. Draw the Pointer (Inward-pointing Wedge) ---
+        # Clamp speed to max to avoid pointer going off the gauge
+        speed_pct = min(max(speed / max(self.max_speed, 1.0), 0.0), 1.0)
+        current_angle = start_angle + (speed_pct * total_angle)
+        rad = math.radians(current_angle)
+
+        # The pointer in the image has its wide base on the outside and point on the inside
+        tip_radius = radius - 35
+        base_radius = radius + 25
+        base_width = math.radians(6) # How wide the back of the pointer is
+        
+        # Calculate polygon vertices
+        pointer_tip_x = cx + tip_radius * math.cos(rad)
+        pointer_tip_y = cy + tip_radius * math.sin(rad)
+        
+        base_x1 = cx + base_radius * math.cos(rad - base_width)
+        base_y1 = cy + base_radius * math.sin(rad - base_width)
+        base_x2 = cx + base_radius * math.cos(rad + base_width)
+        base_y2 = cy + base_radius * math.sin(rad + base_width)
+        
+        draw.polygon([(pointer_tip_x, pointer_tip_y), (base_x1, base_y1), (base_x2, base_y2)], 
+                     fill=(255, 255, 255, 255))
+
+        # --- 4. Draw Core Information Center Callouts ---
+        # Note: The image shows whole numbers. You can change it to f"{speed:.1f}" if you prefer decimals.
+        speed_str = f"{int(speed)}" 
+        speed_w = draw.textlength(speed_str, font=self.font_speed)
+        
+        # Center the main speed text
+        draw.text((cx - speed_w / 2, cy - 40), speed_str, font=self.font_speed, fill=(255, 255, 255, 255))
+        
+        # Draw the unit right at the bottom right tail of the arc, mimicking the image
+        unit_str = "km/h" # Substituting 'mph' for your dataset's km/h
+        draw.text((cx + radius - 60, cy + radius - 10), unit_str, font=self.font_unit, fill=(255, 255, 255, 255))
+
     def _draw_metric(self, draw, x, y, icon_func, label, value, unit):
         # Draw Icon & Label
         icon_func(draw, x, y)
