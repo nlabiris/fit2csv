@@ -41,10 +41,15 @@ The program uses `python-dotenv` and reads environment variables. See `sample.en
 > - `TIMESTAMP_STEP_MS` controls the CSV sampling interval. The script derives `FFMPEG_FRAMERATE` as `int((1 / TIMESTAMP_STEP_MS) * 1000)` for frame timing when merging.
 > - `OVERLAY_DEBUG` when `true`, causes the overlay generator to break after the first frame (useful for quick verification).
 
-CSV output format (columns written by `main.py`)
+CSV output format (header and columns written by `main.py`)
+
+Header row:
+
+`time,lat,lon,elevation,distance,heart_rate,cadence,speed_kmh,temperature,gradient_percent,missing_row`
 
 - `time` — ISO 8601 timestamp with milliseconds, suffixed with `Z` (UTC)
-- `lat` / `lon` — coordinates (float)
+- `lat` — latitude coordinate (float)
+- `lon` — longitude coordinate (float)
 - `elevation` — altitude in meters (rounded to 2 decimals in the CSV output)
 - `distance` — total distance in kilometers (rounded to 2 decimals)
 - `heart_rate` — BPM
@@ -52,7 +57,7 @@ CSV output format (columns written by `main.py`)
 - `speed_kmh` — speed in km/h (rounded to 2 decimals)
 - `temperature` — ambient temperature (°C) from FIT nearest timestamp within `TIME_TOLERANCE`
 - `gradient_percent` — computed gradient percentage (rounded to 2 decimals)
-- `missing_row` — flag indicating whether the row was interpolated (1) or from real data (0)
+- `missing_row` — flag indicating whether the row was interpolated (1) or from real data (0) (filled automatically during conversion from FIT to CSV. If have already a CSV, just set it to 0 for all rows)
 
 #### Environment variables
 
