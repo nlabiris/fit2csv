@@ -97,6 +97,32 @@ All configuration lives in environment variables (see [sample.env](sample.env)).
 - **OVERLAY_DEBUG**: When `True`, overlay generation stops after the first frame (quick verification).
 - **WIDGETS_CONFIG**: JSON string with widget color configuration for each widget (see `sample.env` for example). Must be valid JSON; keys map to color tuples used by the overlay renderer.
 
+### Theme configuration
+
+The overlay system supports multiple visual themes configured via environment variables. Two concepts control theming:
+
+- **ACTIVE_THEME**: A string selecting the active theme. Available values used by the code are `base` and `modern`. Set this in your `.env` (or `sample.env`) as:
+
+```
+ACTIVE_THEME="modern"
+```
+
+- **THEMES_CONFIG**: A JSON string that allows per-theme overrides. The repository `sample.env` includes an example under the `THEMES_CONFIG` variable. A minimal example looks like:
+
+```
+THEMES_CONFIG='{
+  "base": { "CLOCK_WIDGET_THEME": "datetime" },
+  "modern": { "CLOCK_WIDGET_THEME": "minimal" }
+}'
+```
+
+The overlay renderer reads `ACTIVE_THEME` to choose layout presets (fonts, panel sizing, and color selection) and then applies any keys from `THEMES_CONFIG` for the chosen theme. To customize the look, update `WIDGETS_CONFIG` (colors) and `THEMES_CONFIG` (theme-specific flags) in your `.env`.
+
+Note: `sample.env` exposes clock-theme options used by different overlay themes:
+
+- `CLOCK_WIDGET_THEME` (used by the `base` theme): available values `datetime`, `iso`.
+- `CLOCK_WIDGET_THEME` (used by the `modern` theme): available values `minimal`, `panel`.
+
 #### Implementation details and behavior
 
 - FIT parsing: the script uses `fitparse` to iterate `record` messages and collect timestamped temperature samples. Those are stored as `(datetime, temp)` pairs for nearest-neighbor lookup when building CSV rows.
@@ -125,14 +151,20 @@ All configuration lives in environment variables (see [sample.env](sample.env)).
 
 1. Copy `sample.env` to `.env` and edit paths and settings to your environment.
 2. Install dependencies (example using pip):
+
 ```bash
-uv sync
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+# Install runtime Python dependencies used by the project
+python -m pip install python-dotenv fitparse lxml pillow
+# If you prefer managing deps with `pyproject.toml`, use your toolchain (pip, poetry, pipx, etc.)
 ```
 
 3. Run `main.py` directly:
 
 ```bash
-uv run main.py
+python main.py
 ```
 
 The interactive menu matches the implementation and offers:
