@@ -60,7 +60,7 @@ OUTPUT_FOLDER = os.getenv("OUTPUT_FOLDER")
 OVERLAY_WIDTH = int(os.getenv("OVERLAY_WIDTH"))
 OVERLAY_HEIGHT = int(os.getenv("OVERLAY_HEIGHT"))
 FONT_PATH = os.getenv("FONT_PATH")
-OTHER_THEME = os.getenv("OTHER_THEME", "False").lower() == "true"
+ACTIVE_THEME = os.getenv("ACTIVE_THEME", "base")
 
 class FIT2CSV:
     fit: FitFile
@@ -313,31 +313,40 @@ class Overlay:
     font_unit: ImageFont.FreeTypeFont
     panel_bg: tuple[int, int, int, int]
     WIDGETS_CONFIG: dict[str, tuple[int, int, int]]
+    THEMES_CONFIG: dict[str, dict[str, str]]
 
     def __init__(self, debug=False):
         self.debug = debug
         self.local_tz = ZoneInfo("Europe/Athens")
         self.utc_tz = ZoneInfo("UTC")
         font_path = FONT_PATH
-        if OTHER_THEME:
+        if ACTIVE_THEME == "base":
             self.font_speed = ImageFont.truetype(font_path, 90)
             self.font_time = ImageFont.truetype(font_path, 32)
             self.font_value = ImageFont.truetype(font_path, 52)
             self.font_label = ImageFont.truetype(font_path, 20)
             self.font_unit = ImageFont.truetype(font_path, 24)
-        else:
+        elif ACTIVE_THEME == "modern":
             self.font_speed = ImageFont.truetype(font_path, 85)
             self.font_time = ImageFont.truetype(font_path, 40)
             self.font_value = ImageFont.truetype(font_path, 50)
             self.font_label = ImageFont.truetype(font_path, 25)
             self.font_unit = ImageFont.truetype(font_path, 30)
+        else:
+            print(f"Unknown theme: {ACTIVE_THEME}. Defaulting to 'base'.")
+            self.font_speed = ImageFont.truetype(font_path, 90)
+            self.font_time = ImageFont.truetype(font_path, 32)
+            self.font_value = ImageFont.truetype(font_path, 52)
+            self.font_label = ImageFont.truetype(font_path, 20)
+            self.font_unit = ImageFont.truetype(font_path, 24)
 
         # Panel Background Color: (Red, Green, Blue, Alpha) -> 0 is fully transparent, 255 is solid
-        if not OTHER_THEME:
+        if ACTIVE_THEME == "base":
             self.panel_bg = (0, 0, 0, 0)
 
         # Load widget configuration
-        self.WIDGETS_CONFIG = self.load_widget_config()
+        self.WIDGETS_CONFIG = self._load_widget_config()
+        self.THEMES_CONFIG = self._load_themes_config()
 
     def process(self):
         self._create_overlay_directory()
@@ -346,8 +355,8 @@ class Overlay:
         for i, row in enumerate(data):
             draw, img = self._setup_overlay()
 
-            if not OTHER_THEME:
-                self._draw_time_metric(draw, 30, 20, self._draw_clock_icon, row['time'])
+            if ACTIVE_THEME == "base":
+                self._draw_base_time(draw, 30, 20, self._draw_clock_icon, row['time'])
                 self._draw_metric(draw, 30, 100, self._draw_mountain_icon, "Elevation", f"{float(row['elevation']):.0f}", "m")
                 self._draw_metric(draw, 30, 220, self._draw_road_icon, "Total Distance", f"{float(row['distance']):.2f}", "km")
                 self._draw_metric(draw, OVERLAY_WIDTH-200, 50, self._draw_pedal_icon, "Cadence", f"{row['cadence']}", "rpm")
@@ -366,21 +375,24 @@ class Overlay:
                 
                 # Bottom-Right Panel (Speedometer)
                 # draw.rounded_rectangle([width-430, height-430, width-70, height-70], radius=25, fill=panel_bg)
-            else:
-                 # 1. TOP LEFT: Minimalist pill badge for Timestamp
+            elif ACTIVE_THEME == "modern":
+                # 1. TOP LEFT: Timestamp
                 self._draw_modern_time(draw, 40, 40, row['time'])
 
                 # 2. MIDDLE LEFT: Stacked modular data cards (Elevation & Distance)
-                self._draw_modern_card(draw, 40, 140, 340, 110, self._draw_mountain_icon, "ELEVATION", f"{float(row['elevation']):.0f}", "m")
-                self._draw_modern_card(draw, 40, 270, 340, 110, self._draw_road_icon, "DISTANCE", f"{float(row['distance']):.2f}", "km")
+                self._draw_modern_card(draw, 40, 200, 290, 110, self._draw_mountain_icon, "ELEVATION", f"{float(row['elevation']):.0f}", "m")
+                self._draw_modern_card(draw, 40, 330, 290, 110, self._draw_road_icon, "DISTANCE", f"{float(row['distance']):.2f}", "km")
 
                 # 3. BOTTOM LEFT / FLOATING CORNER: Performance metrics
-                self._draw_modern_card(draw, 40, 400, 340, 110, self._draw_pedal_icon, "CADENCE", f"{row['cadence']}", "rpm")
-                self._draw_modern_card(draw, 40, 530, 340, 110, self._draw_heart_icon, "HEART RATE", f"{row['heart_rate']}", "bpm", is_critical=(int(row['heart_rate']) > 160))
+                self._draw_modern_card(draw, 40, 460, 290, 110, self._draw_pedal_icon, "CADENCE", f"{row['cadence']}", "rpm")
+                self._draw_modern_card(draw, 40, 590, 290, 110, self._draw_heart_icon, "HEART RATE", f"{row['heart_rate']}", "bpm", is_critical=(int(row['heart_rate']) > 160))
 
                 # 4. BOTTOM RIGHT: High-End Circular HUD Dial Speedometer
                 # self._draw_hud_speedometer(draw, img, center=(OVERLAY_WIDTH - 220, OVERLAY_HEIGHT - 220), radius=160, speed=float(row['speed_kmh']))
                 self._draw_speedometer(draw, center=(OVERLAY_WIDTH-170, OVERLAY_HEIGHT-150), radius=140, speed=float(row['speed_kmh']))
+            else:
+                print(f"Unknown theme: {ACTIVE_THEME}. Skipping frame generation.")
+                break
 
             self._save_overlay(img, i)
             self._report_progress(i)
@@ -393,7 +405,7 @@ class Overlay:
 
     #region Helpers
 
-    def load_widget_config(self):
+    def _load_widget_config(self):
         # 1. Fetch the raw JSON string from your environment
         raw_json = os.getenv("WIDGETS_CONFIG")
 
@@ -408,6 +420,19 @@ class Overlay:
             print("Warning: WIDGETS_CONFIG not found in environment!")
 
         return colors
+    
+    def _load_themes_config(self):
+        # 1. Fetch the raw JSON string from your environment
+        raw_json = os.getenv("THEMES_CONFIG")
+
+        if raw_json:
+            # 2. Parse the string into a dictionary of dictionaries
+            themes = json.loads(raw_json)
+        else:
+            themes = {}
+            print("Warning: THEMES_CONFIG not found in environment!")
+
+        return themes
 
     def _load_csv(self):
         data = []
@@ -672,39 +697,66 @@ class Overlay:
         draw.rounded_rectangle([x + 10, y + 20, x + 16, y + h - 20], radius=3, fill=accent_color)
         
         # Labels and contextual data
-        icon_func(draw, x + 25, y + 20)
-        draw.text((x + 60, y + 20), label, font=self.font_label, fill=self.WIDGETS_CONFIG["TEXT_MUTED"])
+        icon_func(draw, x + 40, y + 20)
+        draw.text((x + 75, y + 15), label, font=self.font_label, fill=self.WIDGETS_CONFIG["TEXT_MUTED"])
         
         # Values with dynamic padding alignment offset rules
-        draw.text((x + 30, y + 45), value, font=self.font_value, fill=self.WIDGETS_CONFIG["TEXT_MAIN"])
+        draw.text((x + 40, y + 45), value, font=self.font_value, fill=self.WIDGETS_CONFIG["TEXT_MAIN"])
         val_w = draw.textlength(value, font=self.font_value)
-        draw.text((x + 35 + val_w, y + 64), unit, font=self.font_unit, fill=accent_color)
+        draw.text((x + 45 + val_w, y + 64), unit, font=self.font_unit, fill=accent_color)
 
-    def _draw_time_metric(self, draw, x, y, icon_func, value):
+    def _draw_base_time(self, draw, x, y, icon_func, value):
         # Draw Icon & Label
         icon_func(draw, x, y)
         
-        utctime = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=self.utc_tz)
-        localtime = utctime.astimezone(self.local_tz)
+        if self.THEMES_CONFIG.get(ACTIVE_THEME, {}).get("CLOCK_WIDGET_THEME") == "iso":
+            utctime = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=self.utc_tz)
+            localtime = utctime.astimezone(self.local_tz)
+            draw.text((x + 50, y - 10), f"{localtime.strftime('%Y-%m-%d %H:%M:%S')}", font=self.font_time, fill=self.WIDGETS_CONFIG["WIDGET_ICON_VALUE_COLOR"])
+        elif self.THEMES_CONFIG.get(ACTIVE_THEME, {}).get("CLOCK_WIDGET_THEME") == "datetime":
+            utctime = datetime.strptime(value, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=self.utc_tz)
+            localtime = utctime.astimezone(self.local_tz)
+            time_str = localtime.strftime('%H:%M:%S')
+            date_str = localtime.strftime('%b %d, %Y').upper()
 
-        draw.text((x + 50, y - 15), f"{localtime.strftime('%Y-%m-%d %H:%M:%S')}", font=self.font_time, fill=self.WIDGETS_CONFIG["WIDGET_ICON_VALUE_COLOR"])
+            draw.text((x + 50, y - 10), time_str, font=self.font_time, fill=self.WIDGETS_CONFIG["WIDGET_ICON_VALUE_COLOR"])
+            draw.text((x + 50, y + 25), date_str, font=self.font_label, fill=self.WIDGETS_CONFIG["WIDGET_ICON_VALUE_COLOR"])
 
     def _draw_modern_time(self, draw, x, y, iso_timestamp):
         utctime = datetime.strptime(iso_timestamp, '%Y-%m-%dT%H:%M:%S.%fZ').replace(tzinfo=self.utc_tz)
         localtime = utctime.astimezone(self.local_tz)
         time_str = localtime.strftime('%H:%M:%S')
         date_str = localtime.strftime('%b %d, %Y').upper()
-        
-        # Render clean unified bounding pill
-        w_time = draw.textlength(time_str, font=self.font_time)
-        w_date = draw.textlength(date_str, font=self.font_label)
-        total_w = max(w_time, w_date) + 60
-        
-        draw.rounded_rectangle([x, y, x + total_w, y + 75], radius=12, fill=self.WIDGETS_CONFIG["PANEL_BG"])
-        self._draw_clock_icon(draw, x + 15, y + 25)
-        
-        draw.text((x + 50, y + 8), time_str, font=self.font_time, fill=self.WIDGETS_CONFIG["TEXT_MAIN"])
-        draw.text((x + 50, y + 45), date_str, font=self.font_label, fill=self.WIDGETS_CONFIG["ACCENT_CYAN"])
+
+        if self.THEMES_CONFIG.get(ACTIVE_THEME, {}).get("CLOCK_WIDGET_THEME") == "minimal":
+            # Render clean unified bounding pill
+            w_time = draw.textlength(time_str, font=self.font_time)
+            w_date = draw.textlength(date_str, font=self.font_label)
+            total_w = max(w_time, w_date) + 60
+            
+            draw.rounded_rectangle([x, y, x + total_w, y + 90], radius=12, fill=self.WIDGETS_CONFIG["PANEL_BG"])
+            self._draw_clock_icon(draw, x + 15, y + 25)
+            
+            draw.text((x + 50, y + 8), time_str, font=self.font_time, fill=self.WIDGETS_CONFIG["TEXT_MAIN"])
+            draw.text((x + 50, y + 45), date_str, font=self.font_label, fill=self.WIDGETS_CONFIG["ACCENT_CYAN"])
+        elif self.THEMES_CONFIG.get(ACTIVE_THEME, {}).get("CLOCK_WIDGET_THEME") == "panel":
+            # Render clean unified bounding pill
+            draw.textlength(time_str, font=self.font_time)
+            draw.textlength(date_str, font=self.font_label)
+
+            # Base container structure
+            draw.rounded_rectangle([x, y, x + 290, y + 140], radius=16, fill=self.WIDGETS_CONFIG["PANEL_BG"])
+            draw.rounded_rectangle([x + 6, y + 6, x + 290 - 6, y + 140 - 6], radius=12, fill=self.WIDGETS_CONFIG["CARD_BG"])
+            
+            # Design anchor strip accent on the left border edges
+            draw.rounded_rectangle([x + 10, y + 20, x + 16, y + 140 - 20], radius=3, fill=self.WIDGETS_CONFIG["ACCENT_CYAN"])
+            
+            # Labels and contextual data
+            self._draw_clock_icon(draw, x + 40, y + 20)
+            draw.text((x + 75, y + 15), "TIMESTAMP", font=self.font_label, fill=self.WIDGETS_CONFIG["TEXT_MUTED"])
+            
+            draw.text((x + 45, y + 50), time_str, font=self.font_time, fill=self.WIDGETS_CONFIG["TEXT_MAIN"])
+            draw.text((x + 45, y + 90), date_str, font=self.font_label, fill=self.WIDGETS_CONFIG["ACCENT_CYAN"])
 
     #endregion
 
