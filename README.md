@@ -96,6 +96,8 @@ All configuration lives in environment variables (see [sample.env](sample.env)).
 - **FONT_PATH**: Absolute path to a TTF font used for rendering overlays.
 - **OVERLAY_DEBUG**: When `True`, overlay generation stops after the first frame (quick verification).
 - **WIDGETS_CONFIG**: JSON string with widget color configuration for each widget (see `sample.env` for example). Must be valid JSON; keys map to color tuples used by the overlay renderer.
+- **ACTIVE_THEME**: Selects the active overlay theme. Supported values are `base` and `modern`.
+- **THEMES_CONFIG**: JSON string with per-theme overrides. `sample.env` includes a theme dictionary for `base` and `modern`.
 
 ### Theme configuration
 
@@ -118,10 +120,31 @@ THEMES_CONFIG='{
 
 The overlay renderer reads `ACTIVE_THEME` to choose layout presets (fonts, panel sizing, and color selection) and then applies any keys from `THEMES_CONFIG` for the chosen theme. To customize the look, update `WIDGETS_CONFIG` (colors) and `THEMES_CONFIG` (theme-specific flags) in your `.env`.
 
-Note: `sample.env` exposes clock-theme options used by different overlay themes:
+`THEMES_CONFIG` may also include additional per-theme style and layout parameters beyond `CLOCK_WIDGET_THEME`. The current `sample.env` includes:
 
-- `CLOCK_WIDGET_THEME` (used by the `base` theme): available values `datetime`, `iso`.
-- `CLOCK_WIDGET_THEME` (used by the `modern` theme): available values `minimal`, `panel`.
+- `base` theme keys:
+  - `FONT_SIZE_SPEED`, `FONT_SIZE_TIME`, `FONT_SIZE_WIDGET_VALUE`, `FONT_SIZE_WIDGET_LABEL`, `FONT_SIZE_WIDGET_UNIT`
+  - `TIME_WIDGET_X`, `TIME_WIDGET_Y`
+  - `ELEVATION_WIDGET_X`, `ELEVATION_WIDGET_Y`
+  - `DISTANCE_WIDGET_X`, `DISTANCE_WIDGET_Y`
+  - `CADENCE_WIDGET_X`, `CADENCE_WIDGET_Y`
+  - `HEARTRATE_WIDGET_X`, `HEARTRATE_WIDGET_Y`
+  - `SPEEDOMETER_WIDGET_X`, `SPEEDOMETER_WIDGET_Y`
+
+- `modern` theme keys:
+  - `CLOCK_WIDGET_THEME`
+  - `FONT_SIZE_SPEED`, `FONT_SIZE_TIME`, `FONT_SIZE_WIDGET_VALUE`, `FONT_SIZE_WIDGET_LABEL`, `FONT_SIZE_WIDGET_UNIT`
+  - `TIME_WIDGET_X`, `TIME_WIDGET_Y`
+  - `ELEVATION_WIDGET_X`, `ELEVATION_WIDGET_Y`, `ELEVATION_WIDGET_PANEL_WIDTH`, `ELEVATION_WIDGET_PANEL_HEIGHT`
+  - `DISTANCE_WIDGET_X`, `DISTANCE_WIDGET_Y`, `DISTANCE_WIDGET_PANEL_WIDTH`, `DISTANCE_WIDGET_PANEL_HEIGHT`
+  - `CADENCE_WIDGET_X`, `CADENCE_WIDGET_Y`, `CADENCE_WIDGET_PANEL_WIDTH`, `CADENCE_WIDGET_PANEL_HEIGHT`
+  - `HEARTRATE_WIDGET_X`, `HEARTRATE_WIDGET_Y`, `HEARTRATE_WIDGET_PANEL_WIDTH`, `HEARTRATE_WIDGET_PANEL_HEIGHT`
+  - `SPEEDOMETER_WIDGET_X`, `SPEEDOMETER_WIDGET_Y`
+
+Note: `sample.env` exposes the same `CLOCK_WIDGET_THEME` option for both themes, with available values:
+
+- `datetime` or `iso` for the `base` theme.
+- `minimal` or `panel` for the `modern` theme.
 
 #### Implementation details and behavior
 

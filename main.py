@@ -319,34 +319,28 @@ class Overlay:
         self.debug = debug
         self.local_tz = ZoneInfo("Europe/Athens")
         self.utc_tz = ZoneInfo("UTC")
-        font_path = FONT_PATH
-        if ACTIVE_THEME == "base":
-            self.font_speed = ImageFont.truetype(font_path, 90)
-            self.font_time = ImageFont.truetype(font_path, 32)
-            self.font_value = ImageFont.truetype(font_path, 52)
-            self.font_label = ImageFont.truetype(font_path, 20)
-            self.font_unit = ImageFont.truetype(font_path, 24)
-        elif ACTIVE_THEME == "modern":
-            self.font_speed = ImageFont.truetype(font_path, 85)
-            self.font_time = ImageFont.truetype(font_path, 40)
-            self.font_value = ImageFont.truetype(font_path, 50)
-            self.font_label = ImageFont.truetype(font_path, 25)
-            self.font_unit = ImageFont.truetype(font_path, 30)
-        else:
-            print(f"Unknown theme: {ACTIVE_THEME}. Defaulting to 'base'.")
-            self.font_speed = ImageFont.truetype(font_path, 90)
-            self.font_time = ImageFont.truetype(font_path, 32)
-            self.font_value = ImageFont.truetype(font_path, 52)
-            self.font_label = ImageFont.truetype(font_path, 20)
-            self.font_unit = ImageFont.truetype(font_path, 24)
-
-        # Panel Background Color: (Red, Green, Blue, Alpha) -> 0 is fully transparent, 255 is solid
-        if ACTIVE_THEME == "base":
-            self.panel_bg = (0, 0, 0, 0)
 
         # Load widget configuration
         self.WIDGETS_CONFIG = self._load_widget_config()
         self.THEMES_CONFIG = self._load_themes_config()
+
+        if ACTIVE_THEME == "base" or ACTIVE_THEME == "modern":
+            self.font_speed = ImageFont.truetype(FONT_PATH, int(self.THEMES_CONFIG[ACTIVE_THEME]["FONT_SIZE_SPEED"]))
+            self.font_time = ImageFont.truetype(FONT_PATH, int(self.THEMES_CONFIG[ACTIVE_THEME]["FONT_SIZE_TIME"]))
+            self.font_value = ImageFont.truetype(FONT_PATH, int(self.THEMES_CONFIG[ACTIVE_THEME]["FONT_SIZE_WIDGET_VALUE"]))
+            self.font_label = ImageFont.truetype(FONT_PATH, int(self.THEMES_CONFIG[ACTIVE_THEME]["FONT_SIZE_WIDGET_LABEL"]))
+            self.font_unit = ImageFont.truetype(FONT_PATH, int(self.THEMES_CONFIG[ACTIVE_THEME]["FONT_SIZE_WIDGET_UNIT"]))
+        else:
+            print(f"Unknown theme: {ACTIVE_THEME}. Defaulting to 'base'.")
+            self.font_speed = ImageFont.truetype(FONT_PATH, int(self.THEMES_CONFIG["base"]["FONT_SIZE_SPEED"]))
+            self.font_time = ImageFont.truetype(FONT_PATH, int(self.THEMES_CONFIG["base"]["FONT_SIZE_TIME"]))
+            self.font_value = ImageFont.truetype(FONT_PATH, int(self.THEMES_CONFIG["base"]["FONT_SIZE_WIDGET_VALUE"]))
+            self.font_label = ImageFont.truetype(FONT_PATH, int(self.THEMES_CONFIG["base"]["FONT_SIZE_WIDGET_LABEL"]))
+            self.font_unit = ImageFont.truetype(FONT_PATH, int(self.THEMES_CONFIG["base"]["FONT_SIZE_WIDGET_UNIT"]))
+
+        # Panel Background Color: (Red, Green, Blue, Alpha) -> 0 is fully transparent, 255 is solid
+        if ACTIVE_THEME == "base":
+            self.panel_bg = (0, 0, 0, 0)
 
     def process(self):
         self._create_overlay_directory()
@@ -356,12 +350,12 @@ class Overlay:
             draw, img = self._setup_overlay()
 
             if ACTIVE_THEME == "base":
-                self._draw_base_time(draw, 30, 20, self._draw_clock_icon, row['time'])
-                self._draw_metric(draw, 30, 100, self._draw_mountain_icon, "Elevation", f"{float(row['elevation']):.0f}", "m")
-                self._draw_metric(draw, 30, 220, self._draw_road_icon, "Total Distance", f"{float(row['distance']):.2f}", "km")
-                self._draw_metric(draw, OVERLAY_WIDTH-200, 50, self._draw_pedal_icon, "Cadence", f"{row['cadence']}", "rpm")
-                self._draw_metric(draw, OVERLAY_WIDTH-200, 180, self._draw_heart_icon, "Heart Rate", f"{row['heart_rate']}", "bpm")
-                self._draw_speedometer(draw, center=(OVERLAY_WIDTH-170, OVERLAY_HEIGHT-150), radius=140, speed=float(row['speed_kmh']))
+                self._draw_base_time(draw, int(self.THEMES_CONFIG[ACTIVE_THEME]["TIME_WIDGET_X"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["TIME_WIDGET_Y"]), self._draw_clock_icon, row['time'])
+                self._draw_metric(draw, int(self.THEMES_CONFIG[ACTIVE_THEME]["ELEVATION_WIDGET_X"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["ELEVATION_WIDGET_Y"]), self._draw_mountain_icon, "Elevation", f"{float(row['elevation']):.0f}", "m")
+                self._draw_metric(draw, int(self.THEMES_CONFIG[ACTIVE_THEME]["DISTANCE_WIDGET_X"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["DISTANCE_WIDGET_Y"]), self._draw_road_icon, "Total Distance", f"{float(row['distance']):.2f}", "km")
+                self._draw_metric(draw, OVERLAY_WIDTH - int(self.THEMES_CONFIG[ACTIVE_THEME]["CADENCE_WIDGET_X"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["CADENCE_WIDGET_Y"]), self._draw_pedal_icon, "Cadence", f"{row['cadence']}", "rpm")
+                self._draw_metric(draw, OVERLAY_WIDTH - int(self.THEMES_CONFIG[ACTIVE_THEME]["HEARTRATE_WIDGET_X"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["HEARTRATE_WIDGET_Y"]), self._draw_heart_icon, "Heart Rate", f"{row['heart_rate']}", "bpm")
+                self._draw_speedometer(draw, center=(OVERLAY_WIDTH - int(self.THEMES_CONFIG[ACTIVE_THEME]["SPEEDOMETER_WIDGET_X"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["SPEEDOMETER_WIDGET_Y"])), radius=140, speed=float(row['speed_kmh']))
 
                 # --- DRAW BACKGROUND PANELS ---
                 # Top-Left Panel (Timestamp)
@@ -377,19 +371,19 @@ class Overlay:
                 # draw.rounded_rectangle([width-430, height-430, width-70, height-70], radius=25, fill=panel_bg)
             elif ACTIVE_THEME == "modern":
                 # 1. TOP LEFT: Timestamp
-                self._draw_modern_time(draw, 40, 40, row['time'])
+                self._draw_modern_time(draw, int(self.THEMES_CONFIG[ACTIVE_THEME]["TIME_WIDGET_X"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["TIME_WIDGET_Y"]), row['time'])
 
                 # 2. MIDDLE LEFT: Stacked modular data cards (Elevation & Distance)
-                self._draw_modern_card(draw, 40, 200, 290, 110, self._draw_mountain_icon, "ELEVATION", f"{float(row['elevation']):.0f}", "m")
-                self._draw_modern_card(draw, 40, 330, 290, 110, self._draw_road_icon, "DISTANCE", f"{float(row['distance']):.2f}", "km")
+                self._draw_modern_card(draw, int(self.THEMES_CONFIG[ACTIVE_THEME]["ELEVATION_WIDGET_X"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["ELEVATION_WIDGET_Y"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["ELEVATION_WIDGET_PANEL_WIDTH"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["ELEVATION_WIDGET_PANEL_HEIGHT"]), self._draw_mountain_icon, "ELEVATION", f"{float(row['elevation']):.0f}", "m", is_critical=(float(row['elevation']) > 1000))
+                self._draw_modern_card(draw, int(self.THEMES_CONFIG[ACTIVE_THEME]["DISTANCE_WIDGET_X"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["DISTANCE_WIDGET_Y"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["DISTANCE_WIDGET_PANEL_WIDTH"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["DISTANCE_WIDGET_PANEL_HEIGHT"]), self._draw_road_icon, "DISTANCE", f"{float(row['distance']):.2f}", "km")
 
                 # 3. BOTTOM LEFT / FLOATING CORNER: Performance metrics
-                self._draw_modern_card(draw, 40, 460, 290, 110, self._draw_pedal_icon, "CADENCE", f"{row['cadence']}", "rpm")
-                self._draw_modern_card(draw, 40, 590, 290, 110, self._draw_heart_icon, "HEART RATE", f"{row['heart_rate']}", "bpm", is_critical=(int(row['heart_rate']) > 160))
+                self._draw_modern_card(draw, int(self.THEMES_CONFIG[ACTIVE_THEME]["CADENCE_WIDGET_X"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["CADENCE_WIDGET_Y"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["CADENCE_WIDGET_PANEL_WIDTH"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["CADENCE_WIDGET_PANEL_HEIGHT"]), self._draw_pedal_icon, "CADENCE", f"{row['cadence']}", "rpm", is_critical=(int(row['cadence']) > 120))
+                self._draw_modern_card(draw, int(self.THEMES_CONFIG[ACTIVE_THEME]["HEARTRATE_WIDGET_X"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["HEARTRATE_WIDGET_Y"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["HEARTRATE_WIDGET_PANEL_WIDTH"]), int(self.THEMES_CONFIG[ACTIVE_THEME]["HEARTRATE_WIDGET_PANEL_HEIGHT"]), self._draw_heart_icon, "HEART RATE", f"{row['heart_rate']}", "bpm", is_critical=(int(row['heart_rate']) > 160))
 
                 # 4. BOTTOM RIGHT: High-End Circular HUD Dial Speedometer
                 # self._draw_hud_speedometer(draw, img, center=(OVERLAY_WIDTH - 220, OVERLAY_HEIGHT - 220), radius=160, speed=float(row['speed_kmh']))
-                self._draw_speedometer(draw, center=(OVERLAY_WIDTH-170, OVERLAY_HEIGHT-150), radius=140, speed=float(row['speed_kmh']))
+                self._draw_speedometer(draw, center=(OVERLAY_WIDTH-int(self.THEMES_CONFIG[ACTIVE_THEME]["SPEEDOMETER_WIDGET_X"]), OVERLAY_HEIGHT - int(self.THEMES_CONFIG[ACTIVE_THEME]["SPEEDOMETER_WIDGET_Y"])), radius=140, speed=float(row['speed_kmh']))
             else:
                 print(f"Unknown theme: {ACTIVE_THEME}. Skipping frame generation.")
                 break
