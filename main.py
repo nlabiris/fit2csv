@@ -52,8 +52,8 @@ TIME_TOLERANCE = int(os.getenv("TIME_TOLERANCE", 2))
 WINDOW_METERS = int(os.getenv("WINDOW_METERS", 20))
 DECREASE_WINDOW = int(os.getenv("DECREASE_WINDOW", 5))
 INCREASE_WINDOW = int(os.getenv("INCREASE_WINDOW", 5))
-TIMESTAMP_STEP_MS = int(os.getenv("TIMESTAMP_STEP_MS", 500))
-FFMPEG_FRAMERATE = int((1 / TIMESTAMP_STEP_MS) * 1000)
+TIMESTAMP_STEP_MS = float(os.getenv("TIMESTAMP_STEP_MS", 500))
+FFMPEG_FRAMERATE = round(float(1 / (TIMESTAMP_STEP_MS / 1000)), 2)
 
 # Overlay frames settings
 OUTPUT_FOLDER = os.getenv("OUTPUT_FOLDER")
